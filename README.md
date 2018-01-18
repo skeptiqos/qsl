@@ -14,7 +14,7 @@ let
 
 Then to learn a tree 
 ```
-.dtl.learnTree `x`y`rule`classes(X;Y;rule;classes)
+.dtl.learnTree `x`y`rule`classes!(X;Y;rule;classes)
 ```
 
 ### random forests
@@ -23,7 +23,7 @@ We generalise the decision tree process by growing a number of tress using the r
 
 let m be the number of features that are sampled when selecting a splitting point, we can create a bootstrap sample  
 ```
-.dtl.learnTree `x`y`rule`classes`m(X;Y;rule;classes;m)
+.dtl.learnTree `x`y`rule`classes`m!(X;Y;rule;classes;m)
 ```
 
 
