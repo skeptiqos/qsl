@@ -86,11 +86,14 @@
  @example .dtl.chooseSplit[x;.dtl.classify[-50 0 50f;y];>;0 1]
 \
 .dtl.chooseSplit:{[treeinput]
- x: treeinput`x;y: treeinput`y;rule: treeinput`rule;classes: treeinput`classes;rulepath: treeinput`rulepath;
- info:.dtl.chooseSplitXi[y;x;rule;classes]peach flip x;
+ x: treeinput`x;y: treeinput`y;rule: treeinput`rule;classes: treeinput`classes;rulepath: treeinput`rulepath;m: treeinput`m;
+ cx:count fx:flip x;
+ info: .dtl.chooseSplitXi[y;x;rule;classes]peach fx@sampled:asc neg[m]?cx;
+ oob:  til[cx] except sampled;
  summary: (`xi`j`infogain!i,(-1_r)),/:last r:raze info i:first idesc info[;1;0];
- cnt:count summary;
- update rule:rule,rulepath:{[rp;r;i;j] rp,enlist (r;`$"x",string i;j)}[rulepath]'[appliedrule;xi;j],classes:cnt#enlist classes from summary
+ cnt: count summary;
+ res: update rule:rule,rulepath:{[rp;r;i;j] rp,enlist (r;`$"x",string i;j)}[rulepath]'[appliedrule;xi;j],classes:cnt#enlist classes from summary;
+ update m,oob from res
  }
 
 .dtl.chooseSplitXi:{[y;x;rule;classes;xi]
@@ -121,11 +124,17 @@
  }each  r:.dtl.chooseSplit[r]}
 
 
-.dtl.createTree:{[x;y;rule;classes]
- r0:`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes!(0N;0N;0n;x;y;::;rule;();classes);
+.dtl.learnTree:{[params]
+ rfparams:`m`oob!(count flip params`x;());
+ r0:`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m`oob#rfparams,params,`xi`j`infogain`appliedrule`rulepath!(0N;0N;0n;(::);());
  tree: enlist[r0],raze @[r;where 99h=type each r:.dtl.growTree r0;enlist];
  tree: update p:{x?-1_'x} rulepath  from tree;
  `i`p`path xcols update path:{(x scan)each til count x}p,i:i from tree}
+
+.dtl.randomForest:{[params]
+ /{.dtl.learnTree params}peach x;
+
+ }
 
 \
 
@@ -134,15 +143,18 @@ x:1f*((1;1);(2;2);(3;3);(4;5);(5;6);(8;7));
 y:-8 -16 -24 -42 -50 -54f;
 s:`x`y!(x;y);
 z1:.dtl.sampleTree[s;til count flip s`x;count x];
-tree:.dtl.createTree[z1`x;.dtl.classify[-50 -25 0 25 50f]z1`y;>;0 1 2]
-
+tree:.dtl.learnTree @[s;`y;.dtl.classify -50 -25 0 25 50f],`rule`classes!(>;0 1 2);
 
 / all leaf nodes
 select from tree where i in til[count p]except p
 
+/ random forest
 n:100;
-x:flip (n?100f;n?1000f);
+x:flip (n?100f;n?1000f;-25+n?50);
 y:-50f+n?100f;
 s:`x`y!(x;y);
-yy:.dtl.classify[-50 -25 0 25 50f]s`y;
-\ts tree:.dtl.createTree[s`x;yy;>;asc distinct yy]
+s:@[s;`y;.dtl.classify -50 -25 0 25 50f];
+\ts tree:.dtl.learnTree s,`rule`classes!(>;asc distinct s`y)
+\ts tree:.dtl.learnTree s,`rule`classes`m!(>;asc distinct s`y;2)
+
+
