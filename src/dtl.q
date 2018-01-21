@@ -1,6 +1,6 @@
 /
  * Created by aris on 12/23/17.
- Decision tree learning
+ Decision tree learning and random forests
  tree construction based on http://archive.vector.org.uk/art10500340
 \
 
@@ -10,12 +10,16 @@
   s: dataset `x`y!(predictors;predicted)
   p: index vector of features to sample (subset of 0...p-1)
   n: sample size
- @return a dictionary `x`y!(x;y) subsets of predictors and corresponding predicted values
+ @return a dictionary of
+          `x`y : subsets of predictors and corresponding predicted values
+          `oobi: indices of data sample n which were not included (out of bag sample)
  @example
  .dtl.sampleTree[`x`y!(x;y);til count flip x;count x]
  .dtl.sampleTree[s;til count flip s`x;count x]
 \
-.dtl.sampleTree:{[s;p;n] @[s;`x;{flip flip[x]y}[;p]]@\:n?til n}
+.dtl.sampleTree:{[s;p;n]
+ z:@[s;`x;{flip flip[x]y}[;p]]@\:i:n?tn:til n;
+ z,enlist[`oobi]!enlist tn except distinct i}
 
 /
  Classify Y observation (predicted). use for classification tree
@@ -58,8 +62,7 @@
 .dtl.infogain:{[yp;ysplit;classes].dtl.entropy[yp;classes] - (wsum). flip ({count[y]%count x}[yp];.dtl.entropy[;classes])@\:/:ysplit}
 
 /
- applyRule
- applies rule on a split of x at j to categorise classes
+ Apply rule on a split of x at j to categorise classes
  @param
   y    : vector of sampled predicted variable
   x    : matrix of predictor variables
@@ -68,11 +71,11 @@
   j    : split xi at point j based on rule
 \
 .dtl.applyRule:{[y;x;xi;rule;j]
- (`x`y`appliedrule!((x;y)@\:where not b),enlist (not;rule);
-  `x`y`appliedrule!((x;y)@\:where b:eval (rule;xi;j)),enlist rule)}
+ (`x`y`appliedrule!((x;y)@\:where not b),enlist not;
+  `x`y`appliedrule!((x;y)@\:where b:eval (rule;xi;j)),enlist (::))}
 
 /
- choose optimal split for a node
+ Choose optimal split for a node
  find the split which maximizes information gain by iterating over all splits
  @param  x:       predictor
          y:       predicted
@@ -92,9 +95,12 @@
  oob:  til[cx] except sampled;
  summary: (`xi`j`infogain!i,(-1_r)),/:last r:raze info i:first idesc info[;1;0];
  cnt: count summary;
- res: update rule:rule,rulepath:{[rp;r;i;j] rp,enlist (r;`$"x",string i;j)}[rulepath]'[appliedrule;xi;j],classes:cnt#enlist classes from summary;
+ /res: update rule:rule,rulepath:{[rp;r;i;j] rp,enlist (r;`$"x",string i;j)}[rulepath]'[appliedrule;xi;j],classes:cnt#enlist classes from summary;
+ res: update rule:rule,rulepath:{[rp;ar;r;i;j] rp,enlist (ar;(`.dtl.runRule;r;i;j))}[rulepath]'[appliedrule;rule;xi;j],classes:cnt#enlist classes from summary;
  update m,oob from res
  }
+
+.dtl.runRule:{[rule;i;j;x] rule[x i;j]}
 
 .dtl.chooseSplitXi:{[y;x;rule;classes;xi]
   j:asc distinct xi;
@@ -106,7 +112,7 @@
  }
 
 /
- for each of the records in the initial split, we iterate until we reach pure nodes (leaves)
+ Learn a tree: for each of the records in the initial split, we iterate until we reach pure nodes (leaves)
  when we reach a leaf we return flattened result and then recurse over the next split record until there are none left
  the flattened tree should contain all the paths and a tree like structure with all indices i and parents p
  @param
@@ -118,12 +124,6 @@
  @return
   a table tree structure
 \
-.dtl.growTree:{[r]
- {if[1=count distinct x`y;:x];
-  enlist[x],$[98h<>type rr:.dtl.growTree[x];raze @[rr;where 99h=type each rr;enlist];rr]
- }each  r:.dtl.chooseSplit[r]}
-
-
 .dtl.learnTree:{[params]
  rfparams:`m`oob!(count flip params`x;());
  r0:`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m`oob#rfparams,params,`xi`j`infogain`appliedrule`rulepath!(0N;0N;0n;(::);());
@@ -131,9 +131,49 @@
  tree: update p:{x?-1_'x} rulepath  from tree;
  `i`p`path xcols update path:{(x scan)each til count x}p,i:i from tree}
 
-.dtl.randomForest:{[params]
- /{.dtl.learnTree params}peach x;
+.dtl.growTree:{[r]
+ {if[1=count distinct x`y;:x];
+  enlist[x],$[98h<>type rr:.dtl.growTree[x];raze @[rr;where 99h=type each rr;enlist];rr]
+ }each  r:.dtl.chooseSplit[r]}
 
+/
+ Return a subtree containing only the leaves
+\
+.dtl.leaves:{[tree] select from tree where i in til[count p]except p}
+
+/
+ predict Y (classify) given a tree and an input Xi
+ @param
+  x    : a tuple of the features at a data point i, ie X[i]
+  tree : a previously grown tree
+ @return
+     apply the rules of tree to X[i] using the previously constructed `ruelpath field and return the tree record containing the classification
+\
+.dtl.predict:{[x;tree]
+ ({[x;tree]
+  if[1=count tree;:tree];
+  @[tree;`rulepath;1_'] where {value y[0],value[y 1]x}[x]each tree[`rulepath][;0]
+  }[x]over)[tree]
+ };
+
+/
+ Draw a bootstrap sample of size N from the training data using features specified by vector p (til count p for all features to be included)
+ @param
+  params: dictionary with tree input params. see: .dtl.learnTree
+  p: index vector of features to sample (subset of 0...p-1)
+  n: sample size
+ @return
+
+\
+.dtl.bootstrapTree:{[params;p;n;i]
+ z: .dtl.sampleTree[`x`y#params;p;n];
+ tree_b:   .dtl.learnTree @[params;`x`y;:;z`x`y];
+ tree_oob: raze .dtl.predict[;.dtl.leaves tree_b]each params[`x]z`oobi;
+ `tree`ooberror!(tree_b;update obs_y:params[`y]z`oobi from tree_oob)
+ }
+
+.dtl.randomForest:{[params]
+ .dtl.bootstrapTree[params] peach bootstrapsize;
  }
 
 \
@@ -148,13 +188,21 @@ tree:.dtl.learnTree @[s;`y;.dtl.classify -50 -25 0 25 50f],`rule`classes!(>;0 1 
 / all leaf nodes
 select from tree where i in til[count p]except p
 
-/ random forest
-n:100;
-x:flip (n?100f;n?1000f;-25+n?50);
+/ learn tree
+n:10;
+x:flip (n?100f;n?1000f;-25+n?50;n?5.5 257.7 3.3 -4);
 y:-50f+n?100f;
 s:`x`y!(x;y);
 s:@[s;`y;.dtl.classify -50 -25 0 25 50f];
-\ts tree:.dtl.learnTree s,`rule`classes!(>;asc distinct s`y)
-\ts tree:.dtl.learnTree s,`rule`classes`m!(>;asc distinct s`y;2)
+params:s,`rule`classes!(>;asc distinct s`y);
+.dtl.learnTree params
+
+/ bootstrapping
+params:s,`rule`classes!(>;asc distinct s`y);
+\ts b:.dtl.bootstrapTree[params;til count flip s`x;count x;0]
+
+/ bootstrapping with random feature selection at each node -> random forest
+params:s,`rule`classes`m!(>;asc distinct s`y;2);
+\ts b:.dtl.bootstrapTree[params;til count flip s`x;count x;0]
 
 
