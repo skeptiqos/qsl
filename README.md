@@ -33,6 +33,7 @@ y:-50f+n?100f;
 s:`x`y!(x;y);
 s:@[s;`y;.dtl.classify -50 -25 0 25 50f];
 params:s,`rule`classes!(>;asc distinct s`y);
+
 params`x
 27.82122 230.6385 -5  5.5  
 23.92341 949.975  4   5.5  
@@ -44,6 +45,7 @@ params`x
 78.33686 391.543  20  -4f  
 40.99561 81.23546 16  3.3  
 61.08817 936.7503 -23 257.7
+
 params`y
 2 2 2 1 3 1 1 3 4 2
 ```
@@ -51,6 +53,7 @@ One run of the bootsrap algorithm with m=2 will give us
 ```
 params:s,`rule`classes`m!(>;asc distinct s`y;2);
 boottree:.dtl.bootstrapTree[params;til count flip s`x;count x;0];
+
 delete x from boottree`tree
 i p path  xi j        infogain  y                   appliedrule rule rulepath                                                             classes m oob
 -------------------------------------------------------------------------------------------------------------------------------------------------------

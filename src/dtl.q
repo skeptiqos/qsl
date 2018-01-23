@@ -149,11 +149,11 @@
  @return
      apply the rules of tree to X[i] using the previously constructed `ruelpath field and return the tree record containing the classification
 \
-.dtl.predict:{[x;tree]
+.dtl.predictOnTree:{[x;tree]
  ({[x;tree]
   if[1=count tree;:tree];
   @[tree;`rulepath;1_'] where {value y[0],value[y 1]x}[x]each tree[`rulepath][;0]
-  }[x]over)[tree]
+  }[x]over)[.dtl.leaves tree]
  };
 
 /
@@ -165,15 +165,43 @@
  @return
 
 \
-.dtl.bootstrapTree:{[params;p;n;i]
+.dtl.bootstrapTree:{[params;p;n;B]
  z: .dtl.sampleTree[`x`y#params;p;n];
  tree_b:   .dtl.learnTree @[params;`x`y;:;z`x`y];
- tree_oob: raze .dtl.predict[;.dtl.leaves tree_b]each params[`x]z`oobi;
- `tree`ooberror!(tree_b;update obs_y:params[`y]z`oobi from tree_oob)
+ tree_oob: raze .dtl.predictOnTree[;tree_b]each params[`x]z`oobi;
+ tree_oob: update pred_error:abs obs_y-first each y from update obs_y:params[`y]z`oobi from tree_oob;
+ `tree`oob!(`B xcols update B from tree_b;`B xcols update B from tree_oob)
  }
 
+/
+ Random Forest
+ @param
+  params: dictionary with keys
+     x       : predictor
+     y       : predicted
+     rule    : the logical rule to apply
+     classes : the k classification classes for y
+     m       : the number of random features to sample at each split point (for classification m is usually set to sqrt p, where p=count features)
+     p       : index vector of features to sample (subset of 0...p-1)
+     n       : sample size for bootstrapping
+     B       : number of bootstrap trees
+\
 .dtl.randomForest:{[params]
- .dtl.bootstrapTree[params] peach bootstrapsize;
+ ensemble: .dtl.bootstrapTree[params;params`p;params`n] peach til params`B;
+ raze each flip ensemble}
+
+/
+ Predict classification of x (data), given an ensemble
+ @param
+     x        : datapoint to predict classification on: vector of m features
+     ensemble : a random forest: a table of treetables
+ @return
+ classification of x based on majority rule
+\
+.dtl.predictOnRF:{[ensemble;data]
+ rf:{[data;tree;b].dtl.predictOnTree[data]select from tree where B=b}[data;tree]each exec distinct B from tree:ensemble`tree;
+ prediction: {first where x=max x}count each group exec first each y from raze rf;
+ `prediction`mean_error!( prediction; select avg pred_error from ensemble`oob )
  }
 
 \
@@ -199,10 +227,11 @@ params:s,`rule`classes!(>;asc distinct s`y);
 
 / bootstrapping
 params:s,`rule`classes!(>;asc distinct s`y);
-\ts b:.dtl.bootstrapTree[params;til count flip s`x;count x;0]
+\ts b:.dtl.bootstrapTree[params;til count flip params`x;count params`x;0]
 
 / bootstrapping with random feature selection at each node -> random forest
 params:s,`rule`classes`m!(>;asc distinct s`y;2);
-\ts b:.dtl.bootstrapTree[params;til count flip s`x;count x;0]
+\ts b:.dtl.bootstrapTree[params;til count flip params`x;count params`x;0]
+\ts ensemble:.dtl.randomForest params,`p`n`B!(til count flip params`x;count params`x;5)
 
 
