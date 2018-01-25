@@ -19,7 +19,7 @@ Then to learn a tree
 
 ### random forests
 
-####construction
+#### construction
 We generalise the decision tree process by growing a number of tress using the random forest algorithm. 
 
 let m be the number of features that are sampled when selecting a splitting point, we can create a bootstrap sample  
