@@ -91,7 +91,7 @@
 .dtl.chooseSplit:{[treeinput]
  x: treeinput`x;y: treeinput`y;rule: treeinput`rule;classes: treeinput`classes;rulepath: treeinput`rulepath;m: treeinput`m;
  cx:count fx:flip x;
- info: .dtl.chooseSplitXi[y;x;rule;classes]peach fx@sampled:asc neg[m]?cx;
+ info: .dtl.chooseSplitXi[y;x;rule;classes]each fx@sampled:asc neg[m]?cx;
  oob:  til[cx] except sampled;
  summary: (`xi`j`infogain!i,(-1_r)),/:last r:raze info i:first idesc info[;1;0];
  cnt: count summary;
@@ -132,7 +132,7 @@
  `i`p`path xcols update path:{(x scan)each til count x}p,i:i from tree}
 
 .dtl.growTree:{[r]
- {if[1=count distinct x`y;:x];
+ {if[1>=count distinct x`y;:x];
   enlist[x],$[98h<>type rr:.dtl.growTree[x];raze @[rr;where 99h=type each rr;enlist];rr]
  }each  r:.dtl.chooseSplit[r]}
 
