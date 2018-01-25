@@ -16,11 +16,12 @@ Then to learn a tree
 ```
 .dtl.learnTree `x`y`rule`classes!(X;Y;rule;classes)
 ```
+A tree is grown by maximising information entropy on each split and results into a treetable, as illustrated here: http://archive.vector.org.uk/art10500340
 
 ### random forests
 
 #### construction
-We generalise the decision tree process by growing a number of tress using the random forest algorithm. 
+We generalise the decision tree process by growing a number of trees using the random forest algorithm. 
 
 let m be the number of features that are sampled when selecting a splitting point, we can create a bootstrap sample  
 ```
