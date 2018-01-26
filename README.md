@@ -1,8 +1,10 @@
 # qsl
-q statistical learning
+q statistical learning 
 
-## dtl
-decision tree learning
+## dtl 
+
+* decision tree learning
+* random forests
 
 ### grow a Tree
 
@@ -132,7 +134,10 @@ The code is constructed from basic principles to illustrate the creation of a ra
 The random forest generation is a great candidate for parallelization and therefore uses the 'peach' keyword. To take advantage of running the random forest generation on multiple cores, start q with a number of slaves (q -s 4)
 
 ## regression
-linear regression
+
+* linear regression
 
 ## multinormdist
-matrix functions for multi normal distribution
+
+* matrix functions for multi normal distribution
+* cholesky decomposition
