@@ -18,7 +18,7 @@ Then to learn a tree
 ```
 .dtl.learnTree `x`y`rule`classes!(X;Y;rule;classes)
 ```
-A tree is grown by maximising information gain through entropy reduction on each split and results into a treetable, as illustrated here: http://archive.vector.org.uk/art10500340
+A tree is grown by maximising information gain through entropy reduction on each split and results into a treetable, a q datastructure illustrated here: http://archive.vector.org.uk/art10500340
 
 ### random forests
 
