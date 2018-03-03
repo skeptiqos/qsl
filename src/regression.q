@@ -30,7 +30,7 @@
  b:inv[flip[x] mmu x]mmu flip[x]$y; / Equivalent to: enlist[y] lsq flip x
  ybar: x $ b;
  e: y-ybar;
- Rsq: 1- sum[e]%count[y]*var y;
+ Rsq: 1- sum[e*e]%count[y]*var y;
  p: count first x;
  if[all 1=x[;0];p-:1];
  n: count x;
