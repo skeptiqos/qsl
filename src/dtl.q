@@ -130,7 +130,7 @@
 .dtl.learnTree:{[params]
  rfparams:enlist[`m]!enlist count params`x;
  r0:`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m#rfparams,params,`xi`j`infogain`appliedrule`rulepath!(0N;0N;0n;(::);());
- tree: enlist[r0],raze @[r;where 99h=type each r:.dtl.growTree r0;enlist];
+ tree: enlist[r0],$[98<>type r:.dtl.growTree r0;raze @[r;where 99h=type each r;enlist];r];
  tree: update p:{x?-1_'x} rulepath  from tree;
  `i`p`path xcols update path:{(x scan)each til count x}p,i:i from tree}
 
