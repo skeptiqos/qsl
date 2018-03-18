@@ -32,23 +32,17 @@ let m be the number of features that are sampled when selecting a splitting poin
 For illustration purposes, assume we have the following dataset with 3 features and a classified predicted variable y
 ```
 n:10;
-x:flip (n?100f;n?1000f;-25+n?50;n?5.5 257.7 3.3 -4);
+x:(n?100f;n?1000f;-25+n?50;n?5.5 257.7 3.3 -4);
 y:-50f+n?100f;
 s:`x`y!(x;y);
 s:@[s;`y;.dtl.classify -50 -25 0 25 50f];
 params:s,`rule`classes!(>;asc distinct s`y);
 
-params`x
-27.82122 230.6385 -5  5.5  
-23.92341 949.975  4   5.5  
-15.08133 439.081  13  3.3  
-15.67317 575.9051 8   257.7
-97.85    591.9004 -1  3.3  
-70.43314 848.1567 12  257.7
-94.41671 389.056  -21 3.3  
-78.33686 391.543  20  -4f  
-40.99561 81.23546 16  3.3  
-61.08817 936.7503 -23 257.7
+q)params`x
+27.82122 23.92341 15.08133 15.67317 97.85    70.43314 94.41671 78.33686 40.99561 61.08817
+230.6385 949.975  439.081  575.9051 591.9004 848.1567 389.056  391.543  81.23546 936.7503
+-5       4        13       8        -1       12       -21      20       16       -23     
+5.5      5.5      3.3      257.7    3.3      257.7    3.3      -4       3.3      257.7   
 
 params`y
 2 2 2 1 3 1 1 3 4 2
@@ -56,7 +50,7 @@ params`y
 One run of the bootsrap algorithm with m=2 will give us 
 ```
 params:s,`rule`classes`m!(>;asc distinct s`y;2);
-boottree:.dtl.bootstrapTree[params;til count flip s`x;count x;0];
+boottree:.dtl.bootstrapTree[params;til count s`x;count x 0;0];
 
 q)delete x from boottree`tree
 B i  p  path        xi j        infogain  y                   appliedrule rule rulepath                                                                                     ..
@@ -91,7 +85,7 @@ B i  p  path        xi j        infogain  y   appliedrule rule rulepath         
 ```
 We then proceed to create a random forest repeating the random sampling bootstrap method and then bagging everything to one number.
 ```
-q)ensemble:.dtl.randomForest params,`p`n`B!(til count flip params`x;count params`x;5)
+q)ensemble:.dtl.randomForest params,`p`n`B!(til count params`x;count first params`x;5)
 q)ensemble
 tree| +`B`i`p`path`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m`oob!(0 0 0 0 0 0 0 0 0 1 1 1 1 1 1 1 2 2 2 2 2 2 2 3 3 3 3 3 3 3 4 4 4 4 4 4 4 4 4;0 1 2 3 4 5 6 7 ..
 oob | +`B`i`p`path`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m`oob`obs_y`pred_error!(0 0 0 1 1 1 1 1 2 2 2 3 3 3 3 4 4 4 4;3 3 3 2 2 2 2 3 3 3 5 5 6 6 5 1 1 1 1;2..
@@ -120,9 +114,9 @@ Note the out of bag samples are stored as a separate key and used to validate th
 We the proceed to use the built random forest to predict the classification of a new data point. The data point will traverse every tree in the random forest.
 The final classification will be based on majority vote
 ```
-q).dtl.predictOnRF[ensemble;(5.5 0 -2 10f)]
+.dtl.predictOnRF[ensemble;(5.5 0 -2 10f)]
 prediction| 4
-mean_error| +(,`pred_error)!,,1.473684
+mean_error| +(,`pred_error)!,,1.631579
 
 ```
 The mean error is produced by taking the average mean error across all out of bag samples
