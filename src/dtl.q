@@ -89,7 +89,8 @@
  x: treeinput`x;y: treeinput`y;rule: treeinput`rule;classes: treeinput`classes;rulepath: treeinput`rulepath;m: treeinput`m;
  cx:count x;
  info: .dtl.chooseSplitXi[y;x;rule;classes]each x@sampled:asc neg[m]?cx;
- summary: (`xi`j`infogain!i,(-1_r)),/:last r:raze info i:first idesc info[;1;0];
+ summary: (`infogains`xi`j`infogain!enlist[sampled!is],i,(-1_r)),/:last r:raze info i:first idesc is:info[;1;0];
+ /summary: (`xi`j`infogain!i,(-1_r)),/:last r:raze info i:first idesc info[;1;0];
  cnt: count summary;
  res: update rule:rule,rulepath:{[rp;ar;r;i;j] rp,enlist (ar;(`.dtl.runRule;r;i;j))}[rulepath]'[appliedrule;rule;xi;j],classes:cnt#enlist classes from summary;
  update m from res
@@ -113,7 +114,7 @@
 / @return  a table tree structure
 .dtl.learnTree:{[params]
  rfparams:enlist[`m]!enlist count params`x;
- r0:`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m#rfparams,params,`xi`j`infogain`appliedrule`rulepath!(0N;0N;0n;(::);());
+ r0:`infogains`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m#rfparams,params,`infogains`xi`j`infogain`appliedrule`rulepath!(()!();0N;0N;0n;(::);());
  tree: enlist[r0],$[98<>type r:.dtl.growTree r0;raze @[r;where 99h=type each r;enlist];r];
  tree: update p:{x?-1_'x} rulepath  from tree;
  `i`p`path xcols update path:{(x scan)each til count x}p,i:i from tree}
@@ -194,7 +195,10 @@ y:-50f+n?100f;
 s:`x`y!(x;y);
 s:@[s;`y;.dtl.classify -50 -25 0 25 50f];
 params:s,`rule`classes!(>;asc distinct s`y);
-.dtl.learnTree params
+t: .dtl.learnTree params
+
+/ average information gain per feature
+desc avg exec infogains from 1_ t
 
 / bootstrapping
 params:s,`rule`classes!(>;asc distinct s`y);
