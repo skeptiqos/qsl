@@ -174,6 +174,7 @@ We then proceed to create a random forest repeating the random sampling bootstra
 ```
 / create a rf with 50 trees using sampling size = data size and 3/4 features in every iteration
 \ts forest50: .dtl.randomForest params,`p`n`B!( til 3;count iris;50)
+rf:forest50`tree
 ```
 Note the out of bag samples are stored as a separate key and used to validate the prediction ability of the learnt tree by running the prediction on them.
 
