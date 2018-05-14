@@ -193,9 +193,6 @@ s:@[s;`y;.dtl.classify -50 -25 0 25 50f];
 params:s,`rule`classes!(>;asc distinct s`y);
 t: .dtl.learnTree params
 
-/ average information gain per feature
-desc avg exec infogains from 1_ t
-
 / bootstrapping
 params:s,`rule`classes!(>;asc distinct s`y);
 \ts b:.dtl.bootstrapTree[params;til count params`x;count params`y;0]
@@ -203,35 +200,6 @@ params:s,`rule`classes!(>;asc distinct s`y);
 / bootstrapping with random feature selection at each node -> random forest
 params:s,`rule`classes`m!(>;asc distinct s`y;2);
 \ts b:.dtl.bootstrapTree[params;til count params`x;n;0]
-\ts ensemble:.dtl.randomForest params,`p`n`B!(til count params`x;n;5)
+\ts ensemble:.dtl.randomForest params,`m`n`B!(count params`x;n;5)
 
-// iris dataset
-iris:("FFFFS";enlist csv)0:`:/path/to/data/iris.csv;
-dataset:()!();
-dataset[`x]:value flip delete species from iris;
-dataset[`y]:{distinct[x]?x} iris[`species];
-params: dataset,`rule`classes!(>;asc distinct dataset`y);
-
-flip @[`x`y#params;`x;flip]  / visualise
-\ts tree:.dtl.learnTree params
-meta tree
-select i,p,path,xi,j,rulepath from tree
-
-/ find all leaves
-.dtl.leaves tree
-
-/ predict a value
-select avg sepal_length,avg sepal_width,avg petal_length,avg petal_width by species from iris
-
-`y xcols .dtl.predictOnTree[tree] 5.936 2.77 4.26 1.326
-
-`y xcols .dtl.predictOnTree[tree] 6.3 2.8 5 1
-
-/ all features predict correctly?
-all {[x;y;i] predicted: .dtl.predictOnTree[tree] flip[x] i ; y[i]=first distinct first predicted`y}[dataset`x;dataset`y]each til count iris
-
-/ create a rf with 50 trees using sampling size = data size and 3/4 features in every iteration
-\ts forest50: .dtl.randomForest params,`p`n`B!( til count params`x;count iris;50)
-
-rf:forest50`tree
 

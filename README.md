@@ -226,6 +226,14 @@ mean_error| +(,`pred_error)!,,0.9878766
 ```
 The mean error is produced by taking the average mean error across all out of bag samples
 
+#### feature selection
+
+q)desc avg each  (,'/)exec infogains from 1_ rf
+2| 0.4640686
+3| 0.4230697
+0| 0.3604106
+1| 0.2797944
+
 ### Summary and running a model
 
 The code is constructed from basic principles to illustrate the creation of a random forest of decision trees using a q treetable. At each stage of the algorithm one can observe all data points, the vector of split features, the split point itself, the information gain, the predictor (label) and the full rulepath of decicions.
