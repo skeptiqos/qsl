@@ -5,16 +5,14 @@
 / SampleTree: used for bootstrapping, samples a subset of the dataset to grow a tree from
 / @param
 /  s: dataset `x`y!(predictors;predicted)
-/  p: index vector of features to sample (subset of 0...p-1)
 /  n: sample size
 / @return a dictionary of
 /          `x`y : subsets of predictors and corresponding predicted values
 /          `oobi: indices of data sample n which were not included (out of bag sample)
 / @example
-/ .dtl.sampleTree[`x`y!(x;y);til count x;count y]
-/ .dtl.sampleTree[s;til count s`x;count y]
-.dtl.sampleTree:{[s;p;n]
- z:`x`y!(s[`x][p;i];s[`y]i:n?n);
+/ .dtl.sampleTree[`x`y!(x;y);count y]
+.dtl.sampleTree:{[s;n]
+ z:`x`y!(s[`x][;i];s[`y]i:n?n);
  z,enlist[`oobi]!enlist (til n) except distinct i}
 
 / Classify Y observation (predicted). use for classification tree
@@ -112,8 +110,8 @@
 /  `x`y`rule`classes: these are input params with `x`y denoting initial sampled z set
 / @return  a table tree structure
 .dtl.learnTree:{[params]
- rfparams:enlist[`m]!enlist count params`x;
- r0:`infogains`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m#rfparams,params,`infogains`xi`j`infogain`appliedrule`rulepath!(()!();0N;0N;0n;(::);());
+ params[`m]: $[`m in key params;params`m;count params`x];
+ r0:`infogains`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m#params,`infogains`xi`j`infogain`appliedrule`rulepath!(()!();0N;0N;0n;(::);());
  tree: enlist[r0],$[98<>type r:.dtl.growTree r0;raze @[r;where 99h=type each r;enlist];r];
  tree: update p:{x?-1_'x} rulepath  from tree;
  `i`p`path xcols update path:{(x scan)each til count x}p,i:i from tree}
@@ -138,12 +136,12 @@
 / Draw a bootstrap sample of size N from the training data using features specified by vector p (til count p for all features to be included)
 / @param
 /  params: dictionary with tree input params. see: .dtl.learnTree
-/  p: index vector of features to sample (subset of 0...p-1)
+/  m: number of features to randomly sample
 /  n: sample size
 / @return
-.dtl.bootstrapTree:{[params;p;n;B]
- z: .dtl.sampleTree[`x`y#params;p;n];
- tree_b:   .dtl.learnTree @[params;`x`y;:;z`x`y];
+.dtl.bootstrapTree:{[params;m;n;B]
+ z: .dtl.sampleTree[`x`y#params;n];
+ tree_b:   .dtl.learnTree @[params;`x`y;:;z`x`y],enlist[`m]!enlist m;
  tree_oob: raze .dtl.predictOnTree[tree_b]each params[`x]z`oobi;
  tree_oob: update pred_error:abs obs_y-first each y from update obs_y:params[`y]z`oobi from tree_oob;
  `tree`oob!(`B xcols update B from tree_b;`B xcols update B from tree_oob)
@@ -157,11 +155,10 @@
 /     rule    : the logical rule to apply
 /     classes : the k classification classes for y
 /     m       : the number of random features to sample at each split point (for classification m is usually set to sqrt p, where p=count features)
-/     p       : index vector of features to sample (subset of 0...p-1)
 /     n       : sample size for bootstrapping
 /     B       : number of bootstrap trees
 .dtl.randomForest:{[params]
- ensemble: .dtl.bootstrapTree[params;params`p;params`n] peach til params`B;
+ ensemble: .dtl.bootstrapTree[params;params`m;params`n] peach til params`B;
  raze each flip ensemble}
 
 / Predict classification of x (data), given an ensemble
@@ -181,7 +178,7 @@ x:1f*((1;1);(2;2);(3;3);(4;5);(5;6);(8;7));
 .[`x;(::;1);+;-0.05+count[x]?0.1]; / make some noise
 y:-8 -16 -24 -42 -50 -54f;
 s:`x`y!(flip x;y);
-z1:.dtl.sampleTree[s;til count s`x;count y];
+z1:.dtl.sampleTree[s;count y];
 tree:.dtl.learnTree @[s;`y;.dtl.classify -50 -25 0 25 50f],`rule`classes!(>;0 1 2);
 
 / all leaf nodes
