@@ -172,7 +172,9 @@ all {[x;y;i] predicted: .dtl.predictOnTree[tree] flip[x] i ; y[i]=first distinct
 
 We then proceed to create a random forest repeating the random sampling bootstrap method and then bagging everything to one number.
 ```
-/ create a rf with 50 trees using sampling size = count of data sample size and sampling 2/4 features (sqrt num features) in every breakpoint search (random forest)
+/ create a rf with 50 trees using 
+/  sampling size = count of data sample
+/  sampling 2/4 features (sqrt num features) in every breakpoint search (random forest)
 q)\t forest50: .dtl.randomForest params,`m`n`B!(2;150;50)
 445
 rf:forest50`tree
