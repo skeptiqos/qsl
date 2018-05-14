@@ -84,7 +84,7 @@ x               y
 4.4 2.9 1.4 0.2 0
 4.9 3.1 1.5 0.1 0
 ```
-We grow (learn) a tree and observed its meta . We can see that columns returned for this treetable include the params as well as intermediate steps which are useful for exploration of each node
+We grow (learn) a tree and observe its meta . We can see that columns returned for this treetable include the params as well as intermediate steps which are useful for exploration of each node
 ```
 \t tree:.dtl.learnTree params
 16
@@ -205,9 +205,9 @@ B i  p path      infogains                                              xi j   i
 We the proceed to use the built random forest to predict the classification of a new data point. The data point will traverse every tree in the random forest.
 The final classification will be based on majority vote
 ```
-.dtl.predictOnRF[ensemble;(5.5 0 -2 10f)]
-prediction| 4
-mean_error| +(,`pred_error)!,,1.631579
+q).dtl.predictOnRF[forest50]  6.3 2.8 5 1
+prediction| 2
+mean_error| +(,`pred_error)!,,0.9878766
 
 ```
 The mean error is produced by taking the average mean error across all out of bag samples
