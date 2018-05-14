@@ -209,7 +209,7 @@ B i  p path      infogains                                              xi j   i
 
 ```
 #### prediction
-We the proceed to use the built random forest to predict the classification of a new data point. The data point will traverse every tree in the random forest.
+We use the built random forest to predict the classification of a new data point. The data point will traverse every tree in the random forest.
 The final classification will be based on majority vote
 ```
 q).dtl.predictOnRF[forest50]  6.3 2.8 5 1
