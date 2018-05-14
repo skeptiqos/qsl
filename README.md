@@ -231,11 +231,16 @@ The mean error is produced by taking the average mean error across all out of ba
 
 #### feature selection
 
+At every iteration of each individual tree, we keep track of the information gain for the features which have been selected
+We store this under infogains column as a list of dictionaries. 
+We can compute the average information gain per feature and sort in descending order- this allows us to discard the less important features
+```
 q)desc avg each  (,'/)exec infogains from 1_ rf
 2| 0.4640686
 3| 0.4230697
 0| 0.3604106
 1| 0.2797944
+```
 
 ### Summary and running a model
 
