@@ -90,7 +90,6 @@
  cx:count x;
  info: .dtl.chooseSplitXi[y;x;rule;classes]each x@sampled:asc neg[m]?cx;
  summary: (`infogains`xi`j`infogain!enlist[sampled!is],i,(-1_r)),/:last r:raze info i:first idesc is:info[;1;0];
- /summary: (`xi`j`infogain!i,(-1_r)),/:last r:raze info i:first idesc info[;1;0];
  cnt: count summary;
  res: update rule:rule,rulepath:{[rp;ar;r;i;j] rp,enlist (ar;(`.dtl.runRule;r;i;j))}[rulepath]'[appliedrule;rule;xi;j],classes:cnt#enlist classes from summary;
  update m from res
@@ -125,11 +124,11 @@
 
 / predict Y (classify) given a tree and an input Xi
 / @param
-/  x    : a tuple of the features at a data point i, ie X[i]
 /  tree : a previously grown tree
+/  x    : a tuple of the features at a data point i, ie X[i]
 / @return
 /     apply the rules of tree to X[i] using the previously constructed `ruelpath field and return the tree record containing the classification
-.dtl.predictOnTree:{[x;tree]
+.dtl.predictOnTree:{[tree;x]
  ({[x;tree]
   if[1=count tree;:tree];
   @[tree;`rulepath;1_'] where {value y[0],value[y 1]x}[x]each tree[`rulepath][;0]
@@ -145,7 +144,7 @@
 .dtl.bootstrapTree:{[params;p;n;B]
  z: .dtl.sampleTree[`x`y#params;p;n];
  tree_b:   .dtl.learnTree @[params;`x`y;:;z`x`y];
- tree_oob: raze .dtl.predictOnTree[;tree_b]each params[`x]z`oobi;
+ tree_oob: raze .dtl.predictOnTree[tree_b]each params[`x]z`oobi;
  tree_oob: update pred_error:abs obs_y-first each y from update obs_y:params[`y]z`oobi from tree_oob;
  `tree`oob!(`B xcols update B from tree_b;`B xcols update B from tree_oob)
  }
@@ -167,12 +166,12 @@
 
 / Predict classification of x (data), given an ensemble
 / @param
-/     x        : datapoint to predict classification on: vector of m features
 /     ensemble : a random forest: a table of treetables
+/     data     : datapoint to predict classification on: vector of m features
 / @return
 / classification of x based on majority rule
 .dtl.predictOnRF:{[ensemble;data]
- rf:{[data;tree;b].dtl.predictOnTree[data]select from tree where B=b}[data;tree]each exec distinct B from tree:ensemble`tree;
+ rf:{[data;tree;b].dtl.predictOnTree[select from tree where B=b] data}[data;tree]each exec distinct B from tree:ensemble`tree;
  prediction: {first where x=max x}count each group exec first each y from raze rf;
  `prediction`mean_error!( prediction; select avg pred_error from ensemble`oob )
  }
@@ -208,5 +207,63 @@ params:s,`rule`classes!(>;asc distinct s`y);
 params:s,`rule`classes`m!(>;asc distinct s`y;2);
 \ts b:.dtl.bootstrapTree[params;til count params`x;n;0]
 \ts ensemble:.dtl.randomForest params,`p`n`B!(til count params`x;n;5)
+
+// iris dataset
+iris:("FFFFS";enlist csv)0:`:/path/to/data/iris.csv;
+dataset:()!();
+dataset[`x]:value flip delete species from iris;
+dataset[`y]:{distinct[x]?x} iris[`species];
+params: dataset,`rule`classes!(>;asc distinct dataset`y);
+
+flip @[`x`y#params;`x;flip]  / visualise
+\ts tree:.dtl.learnTree params
+meta tree
+select i,p,path,xi,j,rulepath from tree
+
+/ find all leaves
+.dtl.leaves tree
+
+/ predict a value
+select avg sepal_length,avg sepal_width,avg petal_length,avg petal_width by species from iris
+
+`y xcols .dtl.predictOnTree[tree] 5.936 2.77 4.26 1.326
+
+`y xcols .dtl.predictOnTree[tree] 6.3 2.8 5 1
+
+/ all features predict correctly?
+all {[x;y;i] predicted: .dtl.predictOnTree[tree] flip[x] i ; y[i]=first distinct first predicted`y}[dataset`x;dataset`y]each til count iris
+
+/ create a rf with 50 trees using sampling size = data size and 3/4 features in every iteration
+\ts forest50: .dtl.randomForest params,`p`n`B!( til count params`x;count iris;50)
+
+rf:forest50`tree
+
+/ show nodes for each tree in the forest
+q)show each {[rf;b] .dtl.leaves select from rf where B=b}[rf]each exec distinct B from rf
+B i  p  path            infogains                                            xi j   infogain  x                                                                             ..
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------..
+0 1  0  1 0             `s#0 1 2 3!0.5256439 0.351191 0.9370098 0.9370098    2  1.9 0.9370098 5.5 5.2 5.5 4.8 4.8 4.4 5.8 4.8 4.6 5.1 5.7 4.9 5   4.8 4.3 4.9 5.1 4.8 4.4 4...
+0 4  3  4 3 2 0         `s#0 1 2 3!0.02998238 0.03341651 0.139233 0.02550547 2  5.1 0.139233  5.6 5.9 6   5.6 6.9 5.6 5.7 5   6.1 5.5 5   6.9 5.4 6.6 6.4 5.7 5.8 5.5 5.5 5...
+0 5  3  5 3 2 0         `s#0 1 2 3!0.02998238 0.03341651 0.139233 0.02550547 2  5.1 0.139233  6.1                                                                           ..
+0 8  7  8 7 6 2 0       `s#0 1 2 3!0.2810361 0.4581059 0.09288851 0.09288851 1  2.8 0.4581059 6.3 6.2 4.9 5.7 6.3 4.9                                                       ..
+0 10 9  10 9 7 6 2 0    `s#0 1 2 3!0.2516292 0.2516292 0.2516292 0.2516292   0  5.9 0.2516292 5.9                                                                           ..
+0 12 11 12 11 9 7 6 2 0 `s#0 1 2 3!1 0 1 1f                                  0  6   1         6                                                                             ..
+0 13 11 13 11 9 7 6 2 0 `s#0 1 2 3!1 0 1 1f                                  0  6   1         6.7                                                                           ..
+0 14 6  14 6 2 0        `s#0 1 2 3!0.01845374 0.036881 0.1085004 0.08297587  2  5   0.1085004 6.7 7.7 6.7 6.7 6.2 6.9 6.3 5.8 6.3 6.5 6.5 6.7 6.4 6.7 6.7 7.2 7.7 6.9 7.6 5...
+B i p path      infogains                                          xi j   infogain  x                                                                                       ..
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------..
+1 1 0 1 0       `s#0 1 2 3!0.6527083 0.3455988 0.9531972 0.9531972 2  1.7 0.9531972 5.1 5   5   5.2 4.9 4.9 5.1 4.6 4.7 5.1 5.7 4.4 4.6 4.8 5.1 4.7 5.8 4.3 5.7 5.1 5.1 4.9 ..
+1 3 2 3 2 0     `s#0 1 2 3!0.2098285 0.1063728 0.7486074 0.8245606 3  1.6 0.8245606 6.1 6.8 5.6 6.3 5.7 6.7 5.7 6.6 6.1 5.1 6.1 6.6 6.9 6.3 6.5 5.2 5.2 5.7 5.5 5.7 6.3 6.5 ..
+1 6 5 6 5 4 2 0 `s#0 1 2 3!0.9709506 0.9709506 0 0                 0  5.9 0.9709506 5.9 5.9 5.9                                                                             ..
+1 7 5 7 5 4 2 0 `s#0 1 2 3!0.9709506 0.9709506 0 0                 0  5.9 0.9709506 6.2 6                                                                                   ..
+1 8 4 8 4 2 0   `s#0 1 2 3!0.1730418 0.131868 0.2275657 0.09333728 2  4.8 0.2275657 7.7 6.3 6.7 6.9 6.3 7.9 6.7 6.3 7.3 5.8 6.7 6.3 5.9 7.7 6.3 6.7 6.4 7.6 6.9 6.7 6.3 6.8 ..
+B i  p path      infogains                                              xi j   infogain   x                                                                                 ..
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------..
+2 1  0 1 0       `s#0 1 2 3!0.6277119 0.2542153 0.9114844 0.9114844     2  1.9 0.9114844  4.8 5.1 5.1 5.4 4.4 5   5   5.5 4.8 5.4 4.8 5.2 5.2 5.1 5.7 4.9 5.1 4.9 4.9 5.1 5...
+2 4  3 4 3 2 0   `s#0 1 2 3!0.07177718 0.03739419 0.1292362 0.2351934   3  1.8 0.2351934  5.4 5.9 5.5 6   5.5 5.5 5.4 7   7   6.6 5.6 6.3 6.3 5.5 6.1 7   6.1 5.7 6.9 6.1 6...
+2 5  3 5 3 2 0   `s#0 1 2 3!0.07177718 0.03739419 0.1292362 0.2351934   3  1.8 0.2351934  5.6 5.6                                                                           ..
+2 8  7 8 7 6 2 0 `s#0 1 2 3!0.6500224 0.6500224 0 0.3166891             0  6.3 0.6500224  6.3 5.7 6   6.3 6.3                                                               ..
+2 9  7 9 7 6 2 0 `s#0 1 2 3!0.6500224 0.6500224 0 0.3166891             0  6.3 0.6500224  6.7                                                                               ..
+2 10 6 10 6 2 0  `s#0 1 2 3!0.02133484 0.02010771 0.06413159 0.06413159 2  5   0.06413159 6.3 5.8 6.3 6.4 6.7 6.7 6.4 6.5 6.3 6.4 7.4 7.2 6.4 6.7 7.7 5.9 7.7 7.7 7.7 7.7 7...
 
 
