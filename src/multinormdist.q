@@ -28,8 +28,7 @@
   L[i;j]:$[b:i=j; sqrt A[i;j] - {x mmu x} j#L[j] ;  reciprocal[L[j;j]] * A[i;j] - (i#L i)mmu i#L j];
   L
  }[A];
- ijs:tl cross tl:til count first A;
- decompose/[0f*A;ijs where ijs[;1]<=ijs[;0]]
+ decompose/[0f*A;raze tn,/:'(1+tn)#\:tn:til count first A]
  }
 
 / version using over at an iterator - slower
@@ -49,21 +48,58 @@
  L:0f*A;
  i:j:0;
  do[floor (N*1+N:count A)%2;
-  L[i;j]: $[b:i=j; sqrt A[i;j] - {x$x} j#L[j] ;  reciprocal[L[j;j]] * A[i;j] - (i#L i)$i#L j];
+  L[i;j]: $[b:i=j; sqrt A[i;j] - {x mmu x} j#L[j] ;  reciprocal[L[j;j]] * A[i;j] - (i#L i)mmu i#L j];
   i:i+b;
   j:(j+nb)*nb:not b;
  ];
  L}
 
 \
-d:100;
+d:50;
 n:{[n;ms] .qstats.genNormalVariates[n;ms 0;ms 1]}[1000]each ms:flip (d?10f;d?25f);
-count n
 
 m:n cov/:\:n;
-count m
-distinct count each m
+0N!count raze  m;
 
+`:../data/m50.csv 0: csv 0: m;
+
+/ d10
+q)\ts r:.qstats.cholesky m
+0 8320
+q)\ts r2:.qstats.cholesky2 m
+0 1968
+
+$ python cholesky.py
+95.994 #time
+10 #dim
+
+/ d50
 \ts r:.qstats.cholesky m
-\ts r1:.qstats.cholesky1 m
+6 102704
 \ts r2:.qstats.cholesky2 m
+6 27248
+
+$ python cholesky.py
+100.42299999999999
+50
+
+/ d100
+\ts r:.qstats.cholesky m
+21 403728
+\ts r2:.qstats.cholesky2 m
+20 105328
+
+$ python cholesky.py
+75.75899999999997
+100
+
+/ d200
+\ts r:.qstats.cholesky m
+117 1602128
+\ts r2:.qstats.cholesky2 m
+85 415088
+
+$ python cholesky.py
+85.53
+200
+
