@@ -1,5 +1,7 @@
 # qsl
-q statistical learning 
+q statistical learning
+
+A library for statistical and machine learning implemented in kdb+/q.
 
 ## dtl 
 
