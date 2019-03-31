@@ -66,12 +66,14 @@
 
 / Choose optimal split for a node
 / find the split which maximizes information gain by iterating over all splits
-/ @param  xy:        dict of predictor (`x) and predicted (`y) sets
+/ @param  xy:  dict of
+/              predictor (`x) set
+/              predicted (`y) vector
+/              distinct vector of k classification classes (`classes)
+/              number of predictor vectors to sample (`m)
 /         treeinput: dict of
 /           logical rule to apply (`rule)
-/           distinct vector of k classification classes (`classes)
 /           list of rules (`rulepath)
-/           number of predictor vectors to sample (`m)
 /           bitmap of indices of x and y being processed in current iteration
 / @return xi:       the index of the predictor to split on
 /         j:        the position of the rule split ( x[i]>j ) ( x[i]<=j )
@@ -83,14 +85,17 @@
 .dtl.chooseSplit:{[xy;treeinput]
  bm: treeinput`bitmap;
  x: xy[`x][;bmi: where bm];
- y: xy[`y][bmi];rule: treeinput`rule;classes: treeinput`classes;rulepath: treeinput`rulepath;m: treeinput`m;
+ y: xy[`y][bmi];
+ classes: xy`classes;
+ m: xy`m;
+ rule: treeinput`rule;rulepath: treeinput`rulepath;
  cx:count x;
  info: .dtl.chooseSplitXi[xy`y;y;count bm;bmi;rule;classes]each x@sampled:asc neg[m]?cx;
- /'break;
  summary: (`infogains`xi`j`infogain!enlist[sampled!is],i,(-1_r)),/:last r:raze info i:first idesc is:info[;1;0];
  cnt: count summary;
- res: update rule:rule,rulepath:{[rp;ar;r;i;j] rp,enlist (ar;(`.dtl.runRule;r;i;j))}[rulepath]'[appliedrule;rule;xi;j],classes:cnt#enlist classes from summary;
- update m from res
+ update rule:rule,rulepath:{[rp;ar;r;i;j] rp,
+        enlist (ar;(`.dtl.runRule;r;i;j))}[rulepath]'[appliedrule;rule;xi;j]
+        from summary
  }
 
 .dtl.growTree:{[xy;r]
@@ -99,7 +104,6 @@
   R1,:enlist r;
   enlist[r],$[98h<>type rr:.dtl.growTree[xy;r];raze @[rr;where 99h=type each rr;enlist];rr]
  }[xy]each  r:.dtl.chooseSplit[xy;r]}
-
 
 / Learn a tree: for each of the records in the initial split, we iterate until we reach pure nodes (leaves)
 / when we reach a leaf we return flattened result and then recurse over the next split record until there are none left
@@ -115,10 +119,9 @@
  params[`m]: $[`m in key params;params`m;count params`x];
  r0:`infogains`xi`j`infogain`bitmap`x`y`appliedrule`rule`rulepath`classes`m#
      params,`infogains`xi`j`infogain`bitmap`appliedrule`rulepath!(()!();0N;0N;0n;count[params`y]#1b;::;());
- tree: enlist[r0],$[98<>type r:.dtl.growTree[; r0:`x`y _r0] `x`y#r0;raze @[r;where 99h=type each r;enlist];r];
+ tree: enlist[r0],$[98<>type r:.dtl.growTree[; r0:dc _r0] (dc:`x`y`classes`m)#r0;raze @[r;where 99h=type each r;enlist];r];
  tree: update p:{x?-1_'x} rulepath  from tree;
  `i`p`path xcols update path:{(x scan)each til count x}p,i:i from tree}
-
 
 / Return a subtree containing only the leaves
 .dtl.leaves:{[tree] select from tree where i in til[count p]except p}
