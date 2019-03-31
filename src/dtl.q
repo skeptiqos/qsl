@@ -49,54 +49,56 @@
 /  information gain as a float atom
 .dtl.infogain:{[yp;ysplit;classes].dtl.entropy[yp;classes] - (wsum). flip ({count[y]%count x}[yp];.dtl.entropy[;classes])@\:/:ysplit}
 
-/ Apply rule on a split of x at j to categorise classes
-/ @param
-/  y    : vector of sampled predicted variable
-/  x    : matrix of predictor variables
-/  xi   : the ith predicted variable
-/  rule : rule to split on
-/  j    : split xi at point j based on rule
-.dtl.applyRule:{[y;x;xi;rule;j]
- (`x`y`appliedrule!(x[::;i];y i:where not b; not);
-  `x`y`appliedrule!(x[::;i];y i:where b:eval (rule;xi;j); (::)))}
+.dtl.applyRule:{[cbm;bmi;xi;rule;j]
+ (`bitmap`appliedrule!( @[zb; bmi;:;] not b; not);
+  `bitmap`appliedrule!( @[zb:cbm#0b; bmi;:;] b:eval (rule;xi;j); (::)))}
 
 .dtl.runRule:{[rule;i;j;x] rule[x i;j]}
 
-.dtl.chooseSplitXi:{[y;x;rule;classes;xi]
+.dtl.chooseSplitXi:{[yy;y;cbm;bmi;rule;classes;xi]
   j:asc distinct xi;
-  info:{[y;x;xi;rule;classes;j]
-   split:.dtl.applyRule[y;x;xi;rule;j];
-   (.dtl.infogain[y;split`y;classes];split)
-   }[y;x;xi;rule;classes] each j;
+  info:{[yy;y;cbm;bmi;xi;rule;classes;j]
+   split:.dtl.applyRule[cbm;bmi;xi;rule;j];
+   (.dtl.infogain[y;{x where y}[yy] each split[`bitmap];classes];split)
+   }[yy;y;cbm;bmi;xi;rule;classes] each j;
    (j;info)@\:first idesc flip[info]0
  }
 
 / Choose optimal split for a node
 / find the split which maximizes information gain by iterating over all splits
-/ @param  x:       predictor
-/         y:       predicted
-/         rule:    the logical rule to apply
-/         classes: the k classification classes for y
+/ @param  xy:        dict of predictor (`x) and predicted (`y) sets
+/         treeinput: dict of
+/           logical rule to apply (`rule)
+/           distinct vector of k classification classes (`classes)
+/           list of rules (`rulepath)
+/           number of predictor vectors to sample (`m)
+/           bitmap of indices of x and y being processed in current iteration
 / @return xi:       the index of the predictor to split on
 /         j:        the position of the rule split ( x[i]>j ) ( x[i]<=j )
+/         infogains: the information gain for each of the splitted j's
 /         infogain: how much information is gained by splitting at x[i]>j
-/         x,y:      the two child nodes with the corresponding splitted x and y
+/         bitmap:   the indices of splitted x and y
 /         rulepath: the full path of rules applied to node
 / @example .dtl.chooseSplit[x;.dtl.classify[-50 0 50f;y];>;0 1]
-.dtl.chooseSplit:{[treeinput]
- x: treeinput`x;y: treeinput`y;rule: treeinput`rule;classes: treeinput`classes;rulepath: treeinput`rulepath;m: treeinput`m;
+.dtl.chooseSplit:{[xy;treeinput]
+ bm: treeinput`bitmap;
+ x: xy[`x][;bmi: where bm];
+ y: xy[`y][bmi];rule: treeinput`rule;classes: treeinput`classes;rulepath: treeinput`rulepath;m: treeinput`m;
  cx:count x;
- info: .dtl.chooseSplitXi[y;x;rule;classes]each x@sampled:asc neg[m]?cx;
+ info: .dtl.chooseSplitXi[xy`y;y;count bm;bmi;rule;classes]each x@sampled:asc neg[m]?cx;
+ /'break;
  summary: (`infogains`xi`j`infogain!enlist[sampled!is],i,(-1_r)),/:last r:raze info i:first idesc is:info[;1;0];
  cnt: count summary;
  res: update rule:rule,rulepath:{[rp;ar;r;i;j] rp,enlist (ar;(`.dtl.runRule;r;i;j))}[rulepath]'[appliedrule;rule;xi;j],classes:cnt#enlist classes from summary;
  update m from res
  }
 
-.dtl.growTree:{[r]
- {if[1>=count distinct x`y;:x];
-  enlist[x],$[98h<>type rr:.dtl.growTree[x];raze @[rr;where 99h=type each rr;enlist];rr]
- }each  r:.dtl.chooseSplit[r]}
+.dtl.growTree:{[xy;r]
+ {[xy;r]
+  if[1>=count distinct xy[`y]where r`bitmap;:r];
+  R1,:enlist r;
+  enlist[r],$[98h<>type rr:.dtl.growTree[xy;r];raze @[rr;where 99h=type each rr;enlist];rr]
+ }[xy]each  r:.dtl.chooseSplit[xy;r]}
 
 
 / Learn a tree: for each of the records in the initial split, we iterate until we reach pure nodes (leaves)
@@ -105,14 +107,15 @@
 / @param
 /  dictionary with  keys
 /  `xi       : index of x predictor. initialise i of predictor xi as null, we will iterate over all of them
-/  `j        : initialise j split as null, we will iterate overa all of them
-/  `infogain : initialise info gain to null, this will be populated with the information gain at each split
+/  `j        : initialise j split as null, we will iterate over all of them
+/  `infogain : inleitialise info gain to null, this will be populated with the information gain at each split
 /  `x`y`rule`classes: these are input params with `x`y denoting initial sampled z set
-/ @return  a table tree structure
+/ @return  a treetab structure
 .dtl.learnTree:{[params]
  params[`m]: $[`m in key params;params`m;count params`x];
- r0:`infogains`xi`j`infogain`x`y`appliedrule`rule`rulepath`classes`m#params,`infogains`xi`j`infogain`appliedrule`rulepath!(()!();0N;0N;0n;(::);());
- tree: enlist[r0],$[98<>type r:.dtl.growTree r0;raze @[r;where 99h=type each r;enlist];r];
+ r0:`infogains`xi`j`infogain`bitmap`x`y`appliedrule`rule`rulepath`classes`m#
+     params,`infogains`xi`j`infogain`bitmap`appliedrule`rulepath!(()!();0N;0N;0n;count[params`y]#1b;::;());
+ tree: enlist[r0],$[98<>type r:.dtl.growTree[; r0:`x`y _r0] `x`y#r0;raze @[r;where 99h=type each r;enlist];r];
  tree: update p:{x?-1_'x} rulepath  from tree;
  `i`p`path xcols update path:{(x scan)each til count x}p,i:i from tree}
 
