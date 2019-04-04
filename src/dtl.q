@@ -35,7 +35,8 @@
 / @example
 /  .dtl.entropy[.dtl.classify[-50 0 50f;y];0 1]
 .dtl.entropy:{[y;classes]
- p:{sum[x=y]%count x}[y]each classes;
+ p:{sum[x=y]%count x}[y]peach classes;
+ /p:((count each group y)%count y)classes;
  neg p wsum 2 xlog p
  }
 
@@ -93,17 +94,18 @@
  info: .dtl.chooseSplitXi[xy`y;y;count bm;bmi;rule;classes]each x@sampled:asc neg[m]?cx;
  summary: (`infogains`xi`j`infogain!enlist[sampled!is],i,(-1_r)),/:last r:raze info i:first idesc is:info[;1;0];
  cnt: count summary;
- update rule:rule,rulepath:{[rp;ar;r;i;j] rp,
-        enlist (ar;(`.dtl.runRule;r;i;j))}[rulepath]'[appliedrule;rule;xi;j]
+ update rule:rule,
+        rulepath:{[rp;ar;r;i;j] rp,enlist (ar;(`.dtl.runRule;r;i;j))}[rulepath]'[appliedrule;rule;xi;j]
         from summary
  }
 
 .dtl.growTree:{[xy;r]
  {[xy;r]
   if[1>=count distinct xy[`y]where r`bitmap;:r];
-  R1,:enlist r;
   enlist[r],$[98h<>type rr:.dtl.growTree[xy;r];raze @[rr;where 99h=type each rr;enlist];rr]
  }[xy]each  r:.dtl.chooseSplit[xy;r]}
+
+
 
 / Learn a tree: for each of the records in the initial split, we iterate until we reach pure nodes (leaves)
 / when we reach a leaf we return flattened result and then recurse over the next split record until there are none left
@@ -178,26 +180,27 @@
  prediction: {first where x=max x}count each group exec first each y from raze rf;
  `prediction`mean_error!( prediction; select avg pred_error from ensemble`oob )
  }
+
 \
 
-x:1f*((1;1);(2;2);(3;3);(4;5);(5;6);(8;7));
-.[`x;(::;1);+;-0.05+count[x]?0.1]; / make some noise
-y:-8 -16 -24 -42 -50 -54f;
-s:`x`y!(flip x;y);
-z1:.dtl.sampleTree[s;count y];
-tree:.dtl.learnTree @[s;`y;.dtl.classify -50 -25 0 25 50f],`rule`classes!(>;0 1 2);
+iris:("FFFFS";enlist csv)0:`:/var/tmp/iris.csv;
+dataset:()!();
+dataset[`x]:value flip delete species from iris;
+dataset[`y]:{distinct[x]?x} iris[`species];
+params: dataset,`rule`classes!(>;asc distinct dataset`y);
 
-/ all leaf nodes
-select from tree where i in til[count p]except p
+\ts tree:.dtl.learnTree params
 
-/ learn tree
-n:10;
-x:(n?100f;n?1000f;-25+n?50;n?5.5 257.7 3.3 -4);
-y:-50f+n?100f;
-s:`x`y!(x;y);
-s:@[s;`y;.dtl.classify -50 -25 0 25 50f];
-params:s,`rule`classes!(>;asc distinct s`y);
-t: .dtl.learnTree params
+data:abalone;
+dataset:()!();
+dataset[`x]:value flip delete rings from data;
+dataset[`y]:{distinct[x]?x} data[`rings];
+params: dataset,`rule`classes!(>;asc distinct dataset`y);
+
+/ q dtl.q -s 4
+\ts tree:.dtl.learnTree params
+23194 2997024
+
 
 / bootstrapping
 params:s,`rule`classes!(>;asc distinct s`y);

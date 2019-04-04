@@ -157,18 +157,28 @@ setosa    | 5.006        3.418       1.464        0.244
 versicolor| 5.936        2.77        4.26         1.326      
 virginica | 6.588        2.974       5.552        2.026    
 
-exec distinct each y from .dtl.predictOnTree[tree] 5.936 2.77 4.26 1.326
+{distinct x where y}[params`y] each exec bitmap from .dtl.predictOnTree[tree] 5.936 2.77 4.26 1.326
 1
 
-`y xcols .dtl.predictOnTree[tree] 6.3 2.8 5 1
-y     i p path      infogains                                          xi j   infogain  x                                               appliedrule rule rulepath classes m
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-2 2 2 8 7 8 7 3 2 0 `s#0 1 2 3!0.1091703 0.2516292 0.2516292 0.4591479 3  1.5 0.4591479 6   6.3 6.1 2.2 2.8 2.6 5   5.1 5.6 1.5 1.5 1.4 ~:          >             0 1 2   4
+q)select i:i,path,y:{distinct x where y}[params`y]each bitmap from .dtl.predictOnTree[tree] 5.936 2.77 4.26 1.326
+i path      y
+-------------
+0 5 4 3 2 0 1
+
+
+q).dtl.predictOnTree[tree] 6.3 2.8 5 1
+i p path      infogains                                          xi j   infogain  bitmap         ..
+-------------------------------------------------------------------------------------------------..
+8 7 8 7 3 2 0 `s#0 1 2 3!0.1091703 0.2516292 0.2516292 0.4591479 3  1.5 0.4591479 000000000000000..
+
 ```
 Are all features predicted correctly?
 ```
 / all features predict correctly?
-all {[x;y;i] predicted: .dtl.predictOnTree[tree] flip[x] i ; y[i]=first distinct first predicted`y}[dataset`x;dataset`y]each til count iris
+all {[x;y;i] 
+     predicted: .dtl.predictOnTree[tree] flip[x] i ;
+     y[i]=first distinct y where first predicted`bitmap
+    }[dataset`x;dataset`y]each til count iris
 1b
 ```
 
