@@ -104,13 +104,11 @@ infogains  |
 xi         | j    
 j          |      
 infogain   | f    
-x          |      
-y          | J    
+bitmap     | B    
 appliedrule|      
 rule       |      
 rulepath   |      
-classes    | J    
-m          | j    
+  
 ```
 We can inspect our fields of choise, e.g. the full rullpath along with the associated applied rules
 ```

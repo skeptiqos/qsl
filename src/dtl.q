@@ -35,7 +35,7 @@
 / @example
 /  .dtl.entropy[.dtl.classify[-50 0 50f;y];0 1]
 .dtl.entropy:{[y;classes]
- p:{sum[x=y]%count x}[y]peach classes;
+ p:{sum[x=y]%count x}[y]each classes;
  /p:((count each group y)%count y)classes;
  neg p wsum 2 xlog p
  }
@@ -91,7 +91,8 @@
  m: xy`m;
  rule: treeinput`rule;rulepath: treeinput`rulepath;
  cx:count x;
- info: .dtl.chooseSplitXi[xy`y;y;count bm;bmi;rule;classes]each x@sampled:asc neg[m]?cx;
+ info: .dtl.chooseSplitXi[xy`y;y;count bm;bmi;rule;classes]peach x@sampled:asc neg[m]?cx;
+ /info: .Q.fc[ .dtl.chooseSplitXi[xy`y;y;count bm;bmi;rule;classes]each] x@sampled:asc neg[m]?cx;
  summary: (`infogains`xi`j`infogain!enlist[sampled!is],i,(-1_r)),/:last r:raze info i:first idesc is:info[;1;0];
  cnt: count summary;
  update rule:rule,
@@ -141,17 +142,18 @@
   }[x]over)[.dtl.leaves tree]
  };
 
-/ Draw a bootstrap sample of size N from the training data using features specified by vector p (til count p for all features to be included)
+/ Draw a bootstrap sample of size N from the training data and calculate the out of bag error:
+/ For all features which were not sampled (out of bag) for that tree, predict their values and measure the prediction error
 / @param
 /  params: dictionary with tree input params. see: .dtl.learnTree
-/  m: number of features to randomly sample
-/  n: sample size
+/  n: sample size for bootstrap
+/  m: number of features to randomly sample on each node split
 / @return
 .dtl.bootstrapTree:{[params;m;n;B]
  z: .dtl.sampleTree[`x`y#params;n];
  tree_b:   .dtl.learnTree @[params;`x`y;:;z`x`y],enlist[`m]!enlist m;
- tree_oob: raze .dtl.predictOnTree[tree_b]each params[`x]z`oobi;
- tree_oob: update pred_error:abs obs_y-first each y from update obs_y:params[`y]z`oobi from tree_oob;
+ tree_oob: raze .dtl.predictOnTree[tree_b]each flip params[`x;;z`oobi];
+ tree_oob: update pred_error:abs obs_y-{first x where y}[z`y]each bitmap from update obs_y:params[`y]z`oobi from tree_oob;
  `tree`oob!(`B xcols update B from tree_b;`B xcols update B from tree_oob)
  }
 
@@ -191,6 +193,8 @@ params: dataset,`rule`classes!(>;asc distinct dataset`y);
 
 \ts tree:.dtl.learnTree params
 
+abalone:("SFFFFFFFI";enlist csv)0:`:/var/tmp/abalone.data;
+abalone:delete sex from update male:?[sex=`M;1;0],female:?[sex=`F;1;0],ii:?[sex=`I;1;0] from abalone;
 data:abalone;
 dataset:()!();
 dataset[`x]:value flip delete rings from data;
@@ -210,5 +214,7 @@ params:s,`rule`classes!(>;asc distinct s`y);
 params:s,`rule`classes`m!(>;asc distinct s`y;2);
 \ts b:.dtl.bootstrapTree[params;til count params`x;n;0]
 \ts ensemble:.dtl.randomForest params,`m`n`B!(count params`x;n;5)
+
+
 
 
