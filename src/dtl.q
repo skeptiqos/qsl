@@ -2,19 +2,6 @@
 / Decision tree learning and random forests
 / tree construction based on http://archive.vector.org.uk/art10500340
 
-/ SampleTree: used for bootstrapping, samples a subset of the dataset to grow a tree from
-/ @param
-/  s: dataset `x`y!(predictors;predicted)
-/  n: sample size
-/ @return a dictionary of
-/          `x`y : subsets of predictors and corresponding predicted values
-/          `oobi: indices of data sample n which were not included (out of bag sample)
-/ @example
-/ .dtl.sampleTree[`x`y!(x;y);count y]
-.dtl.sampleTree:{[s;n]
- z:`x`y!(s[`x][;i];s[`y]i:n?n);
- z,enlist[`oobi]!enlist (til n) except distinct i}
-
 / Classify Y observation (predicted). use for classification tree
 / @param
 /  breakpoints: sorted list to bucket (classify) predicted variable sample
@@ -122,7 +109,10 @@
  params[`m]: $[`m in key params;params`m;count params`x];
  r0:`infogains`xi`j`infogain`bitmap`x`y`appliedrule`rule`rulepath`classes`m#
      params,`infogains`xi`j`infogain`bitmap`appliedrule`rulepath!(()!();0N;0N;0n;count[params`y]#1b;::;());
- tree: enlist[r0],$[98<>type r:.dtl.growTree[; r0:dc _r0] (dc:`x`y`classes`m)#r0;raze @[r;where 99h=type each r;enlist];r];
+ tree: enlist[r0],
+       $[98<>type r:.dtl.growTree[; r0:dc _r0] (dc:`x`y`classes`m)#r0;
+         raze @[r;where 99h=type each r;enlist];
+         r];
  tree: update p:{x?-1_'x} rulepath  from tree;
  `i`p`path xcols update path:{(x scan)each til count x}p,i:i from tree}
 
@@ -134,7 +124,8 @@
 /  tree : a previously grown tree
 /  x    : a tuple of the features at a data point i, ie X[i]
 / @return
-/     apply the rules of tree to X[i] using the previously constructed `ruelpath field and return the tree record containing the classification
+/     apply the rules of tree to X[i] using the previously constructed `ruelpath field
+/     and return the tree record containing the classification
 .dtl.predictOnTree:{[tree;x]
  ({[x;tree]
   if[1=count tree;:tree];
@@ -142,19 +133,36 @@
   }[x]over)[.dtl.leaves tree]
  };
 
+
+/ SampleTree: used for bootstrapping, samples a subset of the dataset to grow a tree from
+/ @param
+/  s: dataset `x`y!(predictors;predicted)
+/  n: sample size
+/ @return a dictionary of
+/          `x`y : subsets of predictors and corresponding predicted values
+/          `oobi: indices of data sample n which were not included (out of bag sample)
+/ @example
+/ .dtl.sampleTree[`x`y!(x;y);count y]
+.dtl.sampleTree:{[s;n]
+ z:`x`y!(s[`x][;i];s[`y]i:n?n);
+ z,`ibi`oobi!( i ; (til n) except distinct i )}
+
+
 / Draw a bootstrap sample of size N from the training data and calculate the out of bag error:
 / For all features which were not sampled (out of bag) for that tree, predict their values and measure the prediction error
 / @param
 /  params: dictionary with tree input params. see: .dtl.learnTree
 /  n: sample size for bootstrap
 /  m: number of features to randomly sample on each node split
+/  B: the index of bootstrap sample
 / @return
 .dtl.bootstrapTree:{[params;m;n;B]
  z: .dtl.sampleTree[`x`y#params;n];
  tree_b:   .dtl.learnTree @[params;`x`y;:;z`x`y],enlist[`m]!enlist m;
  tree_oob: raze .dtl.predictOnTree[tree_b]each flip params[`x;;z`oobi];
- tree_oob: update pred_error:abs obs_y-{first x where y}[z`y]each bitmap from update obs_y:params[`y]z`oobi from tree_oob;
- `tree`oob!(`B xcols update B from tree_b;`B xcols update B from tree_oob)
+ tree_oob: update pred_error:abs obs_y-{first x where y}[z`y]each bitmap from
+            update obs_y:params[`y]z`oobi from tree_oob;
+ `tree`oob`ibi!(`B xcols update B from tree_b;`B xcols update B from tree_oob;enlist `B`ibi!(B;z`ibi))
  }
 
 / Random Forest
@@ -173,14 +181,18 @@
 
 / Predict classification of x (data), given an ensemble
 / @param
+/     y        : predicted variable vector
 /     ensemble : a random forest: a table of treetables
 /     data     : datapoint to predict classification on: vector of m features
 / @return
 / classification of x based on majority rule
-.dtl.predictOnRF:{[ensemble;data]
- rf:{[data;tree;b].dtl.predictOnTree[select from tree where B=b] data}[data;tree]each exec distinct B from tree:ensemble`tree;
- prediction: {first where x=max x}count each group exec first each y from raze rf;
- `prediction`mean_error!( prediction; select avg pred_error from ensemble`oob )
+.dtl.predictOnRF:{[y;ensemble;data]
+ rf:{[data;tree;ibi;b]
+     prediction: .dtl.predictOnTree[select from tree where B=b] data;
+     update bi: (exec ibi from ibi where B=b) from prediction
+     }[data;tree;ensemble`ibi] each exec distinct B from tree:ensemble`tree;
+ prediction: {first where x=max x}count each group exec {first x[y] where z}[y]'[bi; bitmap] from raze rf;
+ `prediction`mean_error!( prediction; exec avg pred_error from ensemble`oob )
  }
 
 \
@@ -198,22 +210,45 @@ abalone:delete sex from update male:?[sex=`M;1;0],female:?[sex=`F;1;0],ii:?[sex=
 data:abalone;
 dataset:()!();
 dataset[`x]:value flip delete rings from data;
-dataset[`y]:{distinct[x]?x} data[`rings];
+dataset[`y]: data[`rings];
 params: dataset,`rule`classes!(>;asc distinct dataset`y);
 
 / q dtl.q -s 4
 \ts tree:.dtl.learnTree params
 23194 2997024
 
+// random forest
 
-/ bootstrapping
-params:s,`rule`classes!(>;asc distinct s`y);
-\ts b:.dtl.bootstrapTree[params;til count params`x;count params`y;0]
 
-/ bootstrapping with random feature selection at each node -> random forest
-params:s,`rule`classes`m!(>;asc distinct s`y;2);
-\ts b:.dtl.bootstrapTree[params;til count params`x;n;0]
-\ts ensemble:.dtl.randomForest params,`m`n`B!(count params`x;n;5)
+iris:("FFFFS";enlist csv)0:`:/var/tmp/iris.csv;
+dataset:()!();
+dataset[`x]:value flip delete species from iris;
+dataset[`y]:{distinct[x]?x} iris[`species];
+params: dataset,`rule`classes!(>;asc distinct dataset`y);
+
+\ts ensemble:.dtl.randomForest params,`m`n`B!(4;0N!count dataset`y;100)
+
+.dtl.predictOnRF[0N!params`y;ensemble;0N! value `species _ iris 0]  / correct
+.dtl.predictOnRF[0N!params`y;ensemble;0N! value `species _ iris 1]  / correct
+.dtl.predictOnRF[0N!params`y;ensemble;0N! value `species _ iris 77] / correct
+.dtl.predictOnRF[0N!params`y;ensemble;0N! value `species _ iris 149] / correct
+
+mean_error| 0.06950226
+
+/ however, reducing m causes inacuracies...
+
+.dtl.predictOnRF[0N!params`y;ensemble;0N! value `species _ iris 0]  / incorrect
+.dtl.predictOnRF[0N!params`y;ensemble;0N! value `species _ iris 1]  / incorrect
+.dtl.predictOnRF[0N!params`y;ensemble;0N! value `species _ iris 77] / incorrect
+.dtl.predictOnRF[0N!params`y;ensemble;0N! value `species _ iris 149] / correct
+
+mean_error| 0.5421272
+
+
+
+
+\ts ensemble:.dtl.randomForest params,`m`n`B!(5;count params`y;10)
+
 
 
 
