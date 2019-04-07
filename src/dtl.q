@@ -168,7 +168,7 @@
 /     n       : sample size for bootstrapping
 /     B       : number of bootstrap trees
 .dtl.randomForest:{[params]
- ensemble: .dtl.bootstrapTree[params;params`m;params`n] peach til params`B;
+ ensemble: .dtl.bootstrapTree[params;params`m;params`n] each til params`B;
  raze each flip ensemble}
 
 / Predict classification of x (data), given an ensemble
