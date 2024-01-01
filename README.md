@@ -286,3 +286,60 @@ The random forest generation is a great candidate for parallelization and theref
 
 * matrix functions for multi normal distribution
 * cholesky decomposition
+
+## shape
+
+* Non parametrics methods for identifying unusual shapes in timeseries (aka collective outliers)
+* Various methods such as Discord/Motif, Kolmogorov-Smirnov 2-sample test
+* These look at sub series of pre-specified window length ``m``
+
+### Discord
+
+The idea consists of detecting the most unusual subsequence in a time series (denominated time series discord) [Keogh et al. 2005; Lin et al. 2005], by comparing each subsequence with the others; that is, `D` is a discord of time series `X` if
+>         ∀S ∈ A, min (d(D,D′)) > min (d(S,S′)),  D′∈A,D∩D′=∅ S′∈A,S∩S′=∅
+where `A` is the set of all subsequences of X extracted by a sliding window, `D ′` is a subsequence in `A` that does not overlap with `D` (non-overlapping subsequences), `S ′` in `A` does not overlap with `S` (non-overlapping subsequences), and `d` is the Euclidean distance between two subsequences of equal length
+
+See: https://arxiv.org/pdf/2002.04236.pdf.
+
+See also: Discord and Motif (See Neighbor Profile: Bagging Nearest Neighbors for Unsupervised Time Series Mining)
+https://www.researchgate.net/profile/Yuanduo-He/publication/340663191_Neighbor_Profile_Bagging_Nearest_Neighbors_for_Unsupervised_Time_Series_Mining/links/5e97d607a6fdcca7891c2a0b/Neighbor-Profile-Bagging-Nearest-Neighbors-for-Unsupervised-Time-Series-Mining.pdf
+
+Example using cosine and introducing anomalies of various sizes:
+```
+pi:3.141592653589793238462643383279502884197;
+x:cos til[1000]%10*pi;
+x1:@[x;694 695 696;:;-1.1 -1.25 -1.2];   / add artificial anomaly dip
+x2:@[x1;594 595 596;:;0.8 0.5 0.8];      / add a second, larger dip
+x3:@[x1;594 595 596;:;0.9 0.85 0.9];     / make the second dip smaller than the first
+/ visualise
+select i,x from ([]x:x3)
+
+D1:.shape.discordMotif[x1;50;0b];        / detect the starting index of the subseries at the dip
+D2:.shape.discordMotif[x2;50;0b];        / detect the larger dip
+D3:.shape.discordMotif[x3;50;0b];        / detect the larger dip
+```
+
+### KS-Test
+
+The 2-sample Kolmogorov-Smirnov Test is a non-parametric test. The null hypothesis is that both groups were sampled from populations with identical distributions. It tests for any violation of that null hypothesis -- different medians, different variances, or different distributions.
+It has the power to detect changes in the shape of the distributions (Lehmann, page 39). It is not tailed since it just generally checks the difference bertween 2 distributions.
+
+```
+q)s1:250?100f;s2:55?95f
+q).shape.ks[s1;s2;0.1%100]
+KSD     | 0.051
+KSThresh| 0.02891538
+
+q)s1:250?100f;s2:55?95f
+q).shape.ks[s1;s2;0.1%100]
+KSD     | 0.1272727
+KSThresh| 0.2903462
+q).shape.ks[s1;s2;1%100]
+KSD     | 0.1272727
+KSThresh| 0.2424111
+
+q)s1:250?100f;s2:55?150f
+q).shape.ks[s1;s2;1%100]
+KSD     | 0.4305455
+KSThresh| 0.2424111
+```
