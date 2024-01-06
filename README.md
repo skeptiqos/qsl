@@ -306,7 +306,7 @@ https://www.researchgate.net/profile/Yuanduo-He/publication/340663191_Neighbor_P
 
 Example using cosine and introducing anomalies of various sizes:
 ```
-pi:3.141592653589793238462643383279502884197;
+pi:acos -1;
 x:cos til[1000]%10*pi;
 x1:@[x;694 695 696;:;-1.1 -1.25 -1.2];   / add artificial anomaly dip
 x2:@[x1;594 595 596;:;0.8 0.5 0.8];      / add a second, larger dip
@@ -314,9 +314,9 @@ x3:@[x1;594 595 596;:;0.9 0.85 0.9];     / make the second dip smaller than the 
 / visualise
 select i,x from ([]x:x3)
 
-D1:.shape.discordMotif[x1;50;0b];        / detect the starting index of the subseries at the dip
-D2:.shape.discordMotif[x2;50;0b];        / detect the larger dip
-D3:.shape.discordMotif[x3;50;0b];        / detect the larger dip
+D1:.ushape.discordMotif[x1;50;0b];        / detect the starting index of the subseries at the dip
+D2:.ushape.discordMotif[x2;50;0b];        / detect the larger dip
+D3:.ushape.discordMotif[x3;50;0b];        / detect the larger dip
 ```
 
 ### KS-Test
@@ -326,20 +326,21 @@ It has the power to detect changes in the shape of the distributions (Lehmann, p
 
 ```
 q)s1:250?100f;s2:55?95f
-q).shape.ks[s1;s2;0.1%100]
+q).ushape.KTest[s1;s2;0.1%100]
 KSD     | 0.051
 KSThresh| 0.02891538
 
 q)s1:250?100f;s2:55?95f
-q).shape.ks[s1;s2;0.1%100]
+q).ushape.KSTest[s1;s2;0.1%100]
 KSD     | 0.1272727
 KSThresh| 0.2903462
-q).shape.ks[s1;s2;1%100]
+q).ushape.KSTest[s1;s2;1%100]
 KSD     | 0.1272727
 KSThresh| 0.2424111
 
 q)s1:250?100f;s2:55?150f
-q).shape.ks[s1;s2;1%100]
+q).ushape.KSTest[s1;s2;1%100]
 KSD     | 0.4305455
 KSThresh| 0.2424111
 ```
+
