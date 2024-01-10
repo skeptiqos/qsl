@@ -326,21 +326,16 @@ It has the power to detect changes in the shape of the distributions (Lehmann, p
 
 ```
 q)s1:250?100f;s2:55?95f
-q).ushape.KTest[s1;s2;0.1%100]
-KSD     | 0.051
-KSThresh| 0.02891538
-
-q)s1:250?100f;s2:55?95f
-q).ushape.KSTest[s1;s2;0.1%100]
-KSD     | 0.1272727
-KSThresh| 0.2903462
-q).ushape.KSTest[s1;s2;1%100]
-KSD     | 0.1272727
+q).ushape.KSTest[s1;s2;`twoside;1%100]
+KSD     | 0.1763636
 KSThresh| 0.2424111
 
-q)s1:250?100f;s2:55?150f
-q).ushape.KSTest[s1;s2;1%100]
-KSD     | 0.4305455
-KSThresh| 0.2424111
+q).ushape.KSTest[s1;s2;`twoside;15%100]
+KSD     | 0.1763636
+KSThresh| 0.1694946
+
+q).ushape.KSTest[s1;s2;`less;15%100]
+KSD     | 0.1763636
+KSThresh| 0.1694946
 ```
 

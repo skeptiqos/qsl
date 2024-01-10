@@ -74,10 +74,11 @@
 .ushape.motif:{[s;m;z;k] neg[k]#.ushape.discordMotif[s;m;z]};
 
 / 2-sample Kolmogorov-Smirnov (KS Test)
-/ @param s1: the first sample
-/ @param s2: the second sample
-/ @param a:  the significance level (probability of obtaining the results due to chance)
-.ushape.KSTest:{[s1;s2;a]
+/ @param  s1: the first sample
+/ @param  s2: the second sample
+/ @param alt: `twoside`less`greater
+/ @param   a:  the significance level (probability of obtaining the results due to chance)
+.ushape.KSTest:{[s1;s2;alt;a]
  cumf:{iasc[x]!(1+til cx)%cx:count x};
  cfi1:cumf s1;
  cfi2:cumf s2;
@@ -86,7 +87,8 @@
  / combine
  cf1:{asc[key x]#x} (0^key[cf2]#cf1),cf1;
  cf2:{asc[key x]#x} (0^key[cf1]#cf2),cf2;
- D:max abs cf1-cf2;
+ op:$[alt=`less;neg;alt=`greater;::;abs];
+ D:max op cf1-cf2;
  ca:sqrt .5*neg log .5*a;    / c(a)
  c1:count s1;c2:count s2;
  `KSD`KSThresh!(D;ca*sqrt (c1+c2)%c1*c2)
@@ -95,14 +97,15 @@
 / .ushape.ks - apply KS Test to all subseries of a timeseries and return the pairs that reject the hypothesis uat a given significance level
 / @param s: the time series
 / @param m: the window length of the subseries
+/ @param alt: `twoside`less`greater
 / @param z: boolean whether to deman and zscore or not
 / @param a: the significance level (probability of obtaining the results due to chance)
 / @return a table with the starting index of each subseries for which the KSTest statistic has breached the threshold as well as the statistic and threshold values
 / Note: too noisy for many subseries of a periodic timeseries
 /  one with most flagged entries in the ks test may not give meaningful results - discord could be a better measure
-.ushape.ks:{[s;m;z;a]
+.ushape.ks:{[s;m;alt;z;a]
  rf:?[;enlist (>;`KSD;`KSThresh);0b;()];
- ksr:.ushape.applyNonSelfMatch[.ushape.KSTest[;;a];rf;s;m;z];
+ ksr:.ushape.applyNonSelfMatch[.ushape.KSTest[;;alt;a];rf;s;m;z];
  update idx:{raze (c idx)#'idx:where 0<c:count each x}[ksr] from raze ksr
  };
 
