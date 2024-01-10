@@ -38,9 +38,10 @@
 / @param m    : the length of the subseries
 / @param z    : boolean whether to de-mean and zscore or not
 .ushape.applyNonSelfMatch:{[f;rf;s;m;z]
+ if[z;s:.ushape.zscore s];
  S:.ushape.subseqs[s;m]; / create all subsequences
  EI:{r where 0<=r:(y+til x)-(x:(2*x)-1) div 2}[m]each ts:til count S; / exclude indices of overlapping timeseries for each element of subseries
- {[f;rf;s;ei;ts;i] rf f[s i]each s ts except ei i}[f;rf;$[z;.ushape.zscore each S;S];EI;ts]peach ts
+ {[f;rf;s;ei;ts;i] rf f[s i]each s ts except ei i}[f;rf;S;EI;ts]peach ts
  };
 
 / .ushape.discordMotif: Discord Motif :https://arxiv.org/pdf/2002.04236.pdf.
@@ -97,6 +98,8 @@
 / @param z: boolean whether to deman and zscore or not
 / @param a: the significance level (probability of obtaining the results due to chance)
 / @return a table with the starting index of each subseries for which the KSTest statistic has breached the threshold as well as the statistic and threshold values
+/ Note: too noisy for many subseries of a periodic timeseries
+/  one with most flagged entries in the ks test may not give meaningful results - discord could be a better measure
 .ushape.ks:{[s;m;z;a]
  rf:?[;enlist (>;`KSD;`KSThresh);0b;()];
  ksr:.ushape.applyNonSelfMatch[.ushape.KSTest[;;a];rf;s;m;z];
