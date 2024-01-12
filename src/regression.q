@@ -30,12 +30,16 @@
  b:inv[flip[x] mmu x]mmu flip[x]$y; / Equivalent to: enlist[y] lsq flip x
  ybar: x $ b;
  e: y-ybar;
- Rsq: 1-sum[e*e]%count[y]*var y;
+ sse:sum[e*e];
+ n:count y;
+ Rsq: 1-sse%n*var y;
  p: count first x;
  if[all 1=x[;0];p-:1];
  n: count x;
  adjRsq: 1-(1-Rsq)*(n-1)%n-p-1;
- `b`Rsq`adjRsq`y`ybar`e!(b;Rsq;adjRsq;y;ybar;e)
+ se:sqrt sse%n-2;
+ bTstat:b%se%sqrt n*var y;
+ `b`Rsq`adjRsq`y`ybar`e`bTstat!(b;Rsq;adjRsq;y;ybar;e;bTstat)
  }
 
 /
