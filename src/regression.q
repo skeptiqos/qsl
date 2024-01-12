@@ -15,6 +15,8 @@
           `y:      predicted vector[n]
           `ybar:   estimated of predicted vector[n]
           `e:      error vector[n]
+     `bTstat:      slope tstat
+
  @example
   x:1f*((1;1);(2;2);(3;3);(4;5);(5;6);(8;7));
   y:-8 -16 -24 -42 -50 -54f;
