@@ -289,8 +289,7 @@ The random forest generation is a great candidate for parallelization and theref
 
 ## shape
 
-* Non parametrics methods for identifying unusual shapes in timeseries (aka collective outliers)
-* Various methods such as Discord/Motif, Kolmogorov-Smirnov 2-sample test
+* Non parametrics methods for identifying unusual shapes in timeseries (aka collective outliers), using Discord/Motif
 * These look at sub series of pre-specified window length ``m``
 
 ### Discord
@@ -318,24 +317,33 @@ D1:.ushape.discordMotif[x1;50;0b];        / detect the starting index of the sub
 D2:.ushape.discordMotif[x2;50;0b];        / detect the larger dip
 D3:.ushape.discordMotif[x3;50;0b];        / detect the larger dip
 ```
+## ht - hypothesis testing
+
+Non-parametrics hypothesis testing.
 
 ### KS-Test
 
-The 2-sample Kolmogorov-Smirnov Test is a non-parametric test. The null hypothesis is that both groups were sampled from populations with identical distributions. It tests for any violation of that null hypothesis -- different medians, different variances, or different distributions.
-It has the power to detect changes in the shape of the distributions (Lehmann, page 39). It is not tailed since it just generally checks the difference bertween 2 distributions.
+The Kolmogorov-Smirnov Test is a non-parametric test. The null hypothesis is that both groups were sampled from populations with identical distributions. It tests for any violation of that null hypothesis -- different medians, different variances, or different distributions.
+The 1-sample tests for significant difference from normality. The 2-sample tests the two sets for significantly different CDFs. It has the power to detect changes in the shape of the distributions (Lehmann, page 39). It is not tailed since it just generally checks the difference bertween 2 distributions.
 
 ```
+\S 42
 q)s1:250?100f;s2:55?95f
-q).ushape.KSTest[s1;s2;`twoside;1%100]
-KSD     | 0.1763636
+.ht.KSTest[s1;s2;`twoside;1%100]
+KSD     | 0.1229091
 KSThresh| 0.2424111
 
-q).ushape.KSTest[s1;s2;`twoside;15%100]
-KSD     | 0.1763636
-KSThresh| 0.1694946
+q)s1:250?100f;s2:55?50f
+q).ht.KSTest[s1;s2;`less;1%1000]
+KSD     | 0.544
+KSThresh| 0.2767911
 
-q).ushape.KSTest[s1;s2;`less;15%100]
-KSD     | 0.1763636
-KSThresh| 0.1694946
+/ check for normality
+n:-1.21892513 -1.02139816  0.79473819 -0.21667778  1.48445971  0.79481571 -1.28311514  1.61096972  2.06241178  0.91405552  0.66413083  2.63863206   0.79233555 -1.32763874 -0.76997982 -1.76017473 -0.60255683 -0.14036253  1.43857703 -0.06168719 -0.79564272 -1.21610969 -1.24676392  0.93900982 -0.95271042
+q).ht.KSTest[n;();`;0.1]
+KSD     | 0.1793501
+KSThresh| 0.3461637
+
+
 ```
 
