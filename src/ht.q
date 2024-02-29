@@ -1,9 +1,7 @@
 /hypothesis testing
 
 \l ushape.q
-
-PHI:`s#(!). ("FF"; csv)0:`:phi.csv;
-normd:{0^PHI"f"$x};
+\l ts.q
 
 / 1 or 2-sample Kolmogorov-Smirnov (KS Test)
 / @param  s1: the first sample
@@ -11,7 +9,6 @@ normd:{0^PHI"f"$x};
 / @param alt: `twoside`less`greater. indicates alternative hypothesis
 / @param   a:  the significance level (probability of obtaining the results due to chance)
 .ht.KSTest:{[s1;s2;alt;a]
- cumf:{iasc[x]!(1+til cx)%cx:count x};
  cfi1:cumf s1;
  cf1:`s#s1[key cfi1]!value cfi1;
  if[count s2;
@@ -45,3 +42,10 @@ normd:{0^PHI"f"$x};
  update idx:{raze (c idx)#'idx:where 0<c:count each x}[ksr] from raze ksr
  };
 
+/ test for lack of correlation Ho:rho(0)=rho(1)=..=rho(h)=0 vs H1
+/ n*Sum[rho^2/sigma^2]~Chi square with h df. Reject if TS>ChiSq(1-a),h
+/ .ht.zeroLags[x;h=5]
+.ht.zeroLags:{[x;h]
+ r:.ts.acov[x]each til h+1;
+ TS:count[x]*(r$r:1_ r)%r0*r0:r 0; / chi squared test statistic
+ TS};

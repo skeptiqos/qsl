@@ -1,5 +1,5 @@
 / algorithms to detect time series of unusual shapes
-
+\l ts.q
 \l dm.q
 
 / x: point
@@ -13,8 +13,6 @@
 / eg 2 dimensions/features: .lof.l2[(x;x);(v;v)]
 /    1 dimention/feature  : .lof.l2[enlist x;enlist v]
 .ushape.l2:{sqrt r wsum r:x-y};
-
-.ushape.zscore:{(x-avg x)%dev x};
 
 / .ushape.pointDist: Point outliers: Distance of a point from all others in a time series
 / for subseries (ie collective outliers) we will need the concepts of discord/motif further below
@@ -38,7 +36,7 @@
 / @param m    : the length of the subseries
 / @param z    : boolean whether to de-mean and zscore or not
 .ushape.applyNonSelfMatch:{[f;rf;s;m;z]
- if[z;s:.ushape.zscore s];
+ if[z;s:zscore s];
  S:.ushape.subseqs[s;m]; / create all subsequences
  EI:{r where 0<=r:(y+til x)-(x:(2*x)-1) div 2}[m]each ts:til count S; / exclude indices of overlapping timeseries for each element of subseries
  {[f;rf;s;ei;ts;i] rf f[s i]each s ts except ei i}[f;rf;S;EI;ts]peach ts
