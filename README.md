@@ -344,6 +344,135 @@ q).ht.KSTest[n;();`;0.1]
 KSD     | 0.1793501
 KSThresh| 0.3461637
 
+```
+
+### Neural Networks
+
+We implement a Multilayer Perceptron (MLP). This is a simple Neural Network (NN) and we will make the number of hidden layers `l` configurable.
+
+#### Background
+
+A NN is a linear model `z=b+Wa`, where `b` is a bias vector, `W` a weights matrix and `a` is the input/activation.
+
+Importantly, a NN includes and activation funciton `f[z]` to allow for non-linear relationships in the data.
+
+For building the NN we require two steps:
+1. A feed-forward mechanism to implement the actual network prediction
+2. Backpropagation, to calculate the Gradient and estimate the network Weights
+
+#### How does a network learn? 
+
+By minimising the cost function, which is the prediction error.
+
+Example Cost functions: MSE (mean square error) for regression or cross-entropy/AUROC for classification
+
+The Gradient of the cost function gives us which changes to the weights matter most to minimise the error.
+So if `C(w)` and the Gradient `dCdw (dC/dw)` is negative we shift the input `w` to the right (towards the local minimum).
+ `w` represents the vector of weights and biases across all layers.
+Backpropagation lets us compute that negative gradient.
+
+How to adjust/emphasize a node's prediction to nudge it in the right direction?
+  - increase bias
+  - increase weight ( in proportion to previous activation, node value n)
+  - change the node value (in proportion to their weights)
+
+We end up with calculating delta changes for the weights matrix w at each layer. Each of these partial derivatives/changes are the components of the Gradient vector.
+
+The new value of the weight will then be 
+
+`w = w -r dCdw` , `r` is the learning rate < 1, `dCdw` is the derivative of `C(w)`
+
+ie compute the gradient and then take a small step in the negative direction, to reach the local minimum
+
+So if C is cost function, n the value of the node in previous layer and y the expected output (correct label)
+```
+ z= b+w$a
+ a=f[z] / f is relu,sigmoid or other activation function
+```
+We want to calculate the rate of cost change when changing the weight:
+
+```
+ dCdw(l): dCda * dadz * dzdw (chain rule)
+ -> del of Cost function wrt activation a at layer l * del of activation function wrt to linear output z at layer l * d of z wrt w
+```
+ Let delta be the approximate error wrt to activation at layer l
+```
+ delta(L): dCdz: dCda * dadz    / L is output layer
+ dCda: 2(a-y) for c=(a-y)xexp 2 / y is output
+ delta(l): dCdz: (T(W(l+1)) * delta(l+1)) * dadz / T(W) is weights transpose of the next layer. ie apply the transposte of weights to the error d(l) to get the error at d(l-1)
+ dadz: derivative of activation func, da
+ dzdw: a[l-1], a of previous layer
+ ```
+ Therefore: ```dCdw = a[l-1] mmu delta[l]```
+
+reference: http://neuralnetworksanddeeplearning.com/chap2.html?utm_source=perplexity
+
+#### Minibatch Stochastic Gradient Descent
+
+Processes batches of data obtained by a random permutation of the training data. Each observation is processed only once per epoch, albeit in random order. An epoch is one complete pass of the training dataset.
+
+This enables us to average the gradients computed for each batch, which is less noisy than SGD - which applies on every sample - but also faster and less expensive than a Batch Gradient Descent which uses the whole training sample.
+
+#### Training on the MNIST dataset
+
+Let's now train our model on the famous MNIST dataset of handwritten digits. We will use one hidden layer of size 32, along with the mini-batch SGD. We will only use a single epoch:
+
+```
+S:readMNIST[`train;0];        / sample train data
+Y:@[10#0;;:;1]each Y:first S; / 60k records
+X:flip 1_ S;X:X%max over X;   / each of the 60k X is 28x28=784 pixels
+-1 "Train on ",string[count X]," MNIST images";
+-1 "Model Params:";
+show `k`l`eta`batchsize`numepochs`history#pm0:([x:X; y:Y; k:32; l:1; e:0f; eta:1%3; hactivf:relu; hactivf_d: >[;0]; activf:softmax; cost:xentropy; cost_d:xentropy_d; batchsize:64; numepochs:1;history:0b]);
+pm:.neuralnet.init[pm0];
+-1 ".neuralnet.train:";
+\t nn:.neuralnet.train[pm]
+
+T:readMNIST[`test;0];         / test data
+Y:@[10#0;;:;1]each Y:first T; / 10k records
+X:flip 1_ T;X:X%max over X;
+-1 ".neuralnet.validate prediction on ",string[count X]," test MNIST images";
+\t predict:.neuralnet.validate[([x:X; y:Y; hactivf:relu; activf:softmax; nn: nn; history:pm`history])]
+
+-1"prediction accuracy:",string {100*sum[x]%count x}predict;
 
 ```
 
+The training gives the following results:
+
+```
+Train on 60000 MNIST images
+Model Params:
+k        | 32
+l        | 1
+eta      | 0.3333333
+batchsize| 64
+numepochs| 1
+history  | 0b
+.neuralnet.train:
+1517
+.neuralnet.validate prediction on 10000 test MNIST images
+74
+prediction accuracy:93.84
+```
+So we achieve ~94% accuracy with a training time of 1.5 seconds.
+
+Let's try now and increase the number of epochs to 5
+
+```
+ Train on 60000 MNIST images
+Model Params:
+k        | 32
+l        | 1
+eta      | 0.3333333
+batchsize| 64
+numepochs| 5
+history  | 0b
+.neuralnet.train:
+7654
+.neuralnet.validate prediction on 10000 test MNIST images
+74
+prediction accuracy:95.86
+```
+
+The prediction accuracy improved to almost 96%, but at a cost of taking almost 8 seconds to train the network.
