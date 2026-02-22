@@ -34,12 +34,13 @@ initTrainPredict:{[ixyraw;pxyraw;pmi]
  nn:.neuralnet.trainMBSGD[pm];
  -1 ".neuralnet.train time:",string traintime:.z.n-s;
  / test data - predict
- pxy:prepData[pxyraw;`test;`avgx`devx#pm];
+ pxy:prepData[pxyraw;`test;`avgx`devx#pm]; / normalise vs the mean&dev used for the training data
  -1 ".neuralnet.validate prediction on ",string[count pxyraw`X]," test data";s:.z.n;
- predict:.neuralnet.validate[([x:pxy[`X]`normx; y:pxy`Y; hactivf:pm[`FP;`f]; activf:pm[`FP;`ff]; nn: nn; history:pm`history])];
+ success:.neuralnet.validate[([x:pxy[`X]`normx; y:pxy`Y; hactivf:pm[`FP;`f]; activf:pm[`FP;`ff]; nn: nn; history:pm`history])];
  predicttime:.z.n-s;
- -1"prediction accuracy:",string[{100*sum[x]%count x}predict],"\n";
- `nn`predict`pm`traintime`predicttime!(nn;predict;pm;traintime;predicttime)};
+ accuracy:{100*sum[x]%count x}success;
+ -1"prediction accuracy:",string[accuracy],"\n";
+ `nn`predict`pm`traintime`predicttime!(nn;pxy,([success;accuracy]);pm;traintime;predicttime)};
 
 / test with MNIST
 ixyraw:readMNIST[`train;0];
@@ -53,8 +54,8 @@ res3:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.1;
 /res0[`nn;`B]~last res1[`nn;`B]
 
 / summary stats
-summary:{([accuracy:{100*sum[x]%count x} x`predict]),
-  (exec last endC,sum fftime,sum bptime,last step from x`nn),
+summary:{([accuracy:x[`predict]`accuracy]),
+  (exec endC:last avgC,sum fftime,sum bptime,last step from x`nn),
   (`traintime`predicttime#x),
   `k`l`e`eta`batchsize`numepochs# x`pm}each (res1;res2;res3);
 

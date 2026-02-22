@@ -420,11 +420,11 @@ Let's now train our model on the famous MNIST dataset of handwritten digits. We 
 ```
 $ q neuralnet_example.q -s 8  -c 18 204 -p 5001
 
-k  l eta batchsize numepochs step   accuracy endC         traintime           
-------------------------------------------------------------------------------
-32 1 0.1 64        1         60000  94.09    4.445083e-05 0D00:00:01.683078000
-32 1 0.1 64        5         300000 95.89    6.690469e-07 0D00:00:08.411591000
-32 1 0.1 128       10        600000 96.37    0.07800258   0D00:00:15.859107000
+k  l eta batchsize numepochs step   accuracy endC       traintime           
+----------------------------------------------------------------------------
+32 1 0.1 64        1         60000  94.09    0.08636922 0D00:00:01.575325000
+32 1 0.1 64        5         300000 95.89    0.1434528  0D00:00:08.448250000
+32 1 0.1 128       10        600000 96.37    0.07722889 0D00:00:15.889291000
 
 ```
 The single epoch achieves 94.1% accuracy, whereas training with 10 epochs increases the accuracy to 96.4%, but at the cost of taking 15 seconds to train vs the initial 1.6 
@@ -432,3 +432,39 @@ The single epoch achieves 94.1% accuracy, whereas training with 10 epochs increa
 We can plot the Cost reduction over training:
 
 ```select step,avgC,devC,startC,endC from res1[`nn]```
+
+The cost has been reduced:
+```
+q)select avg avgC,avg endC,avg devC from res1[`nn]
+avgC      endC      devC    
+----------------------------
+0.3188255 0.3046957 0.722756
+q)select avg avgC,avg endC,avg devC from res2[`nn]
+avgC      endC      devC     
+-----------------------------
+0.1682634 0.1635196 0.5505956
+q)select avg avgC,avg endC,avg devC from res3[`nn]
+avgC      endC      devC     
+-----------------------------
+0.1505804 0.1531289 0.5288206
+```
+
+## Prediction
+
+Use ```.neuralnet.predict[hactivf;activf;nn;x]``` to make a prediction, passing in the trained NN `nn` and a normalised `x` input
+
+We can see that model 1 fails to predict the test sample with index 20:
+
+```
+q)where res1[`predict;`Y;20]
+,9
+q){.neuralnet.predict[x[`pm]`hactivf;x[`pm]`activf;last x[`nn];x[`predict;`X;`normx]y]}[res1;20]
+,7
+```
+Whereas model 3 with the higher accuracy is able to:
+```
+q)where res3[`predict;`Y;20]
+,9
+q){.neuralnet.predict[x[`pm]`hactivf;x[`pm]`activf;last x[`nn];x[`predict;`X;`normx]y]}[res3;20]
+,9
+```
