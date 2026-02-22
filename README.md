@@ -415,64 +415,20 @@ This enables us to average the gradients computed for each batch, which is less 
 
 ## Training on the MNIST dataset
 
-Let's now train our model on the famous MNIST dataset of handwritten digits. We will use one hidden layer of size 32, along with the mini-batch SGD. We will only use a single epoch:
+Let's now train our model on the famous MNIST dataset of handwritten digits. We will use one hidden layer of size 32, along with the mini-batch SGD. We will start using a single epoch and then increase the number of epochs as well as the batchsize:
 
 ```
-S:readMNIST[`train;0];        / sample train data
-Y:@[10#0;;:;1]each Y:first S; / 60k records
-X:flip 1_ S;X:X%max over X;   / each of the 60k X is 28x28=784 pixels
--1 "Train on ",string[count X]," MNIST images";
--1 "Model Params:";
-show `k`l`eta`batchsize`numepochs`history#pm0:([x:X; y:Y; k:32; l:1; e:0f; eta:1%3; hactivf:relu; hactivf_d: >[;0]; activf:softmax; cost:xentropy; cost_d:xentropy_d; batchsize:64; numepochs:1;history:0b]);
-pm:.neuralnet.init[pm0];
--1 ".neuralnet.train:";
-\t nn:.neuralnet.train[pm]
+$ q neuralnet_example.q -s 8  -c 18 204 -p 5001
 
-T:readMNIST[`test;0];         / test data
-Y:@[10#0;;:;1]each Y:first T; / 10k records
-X:flip 1_ T;X:X%max over X;
--1 ".neuralnet.validate prediction on ",string[count X]," test MNIST images";
-\t predict:.neuralnet.validate[([x:X; y:Y; hactivf:relu; activf:softmax; nn: nn; history:pm`history])]
-
--1"prediction accuracy:",string {100*sum[x]%count x}predict;
+k  l eta batchsize numepochs step   accuracy endC         traintime           
+------------------------------------------------------------------------------
+32 1 0.1 64        1         60000  94.09    4.445083e-05 0D00:00:01.683078000
+32 1 0.1 64        5         300000 95.89    6.690469e-07 0D00:00:08.411591000
+32 1 0.1 128       10        600000 96.37    0.07800258   0D00:00:15.859107000
 
 ```
+The single epoch achieves 94.1% accuracy, whereas training with 10 epochs increases the accuracy to 96.4%, but at the cost of taking 15 seconds to train vs the initial 1.6 
 
-The training gives the following results:
+We can plot the Cost reduction over training:
 
-```
-Train on 60000 MNIST images
-Model Params:
-k        | 32
-l        | 1
-eta      | 0.3333333
-batchsize| 64
-numepochs| 1
-history  | 0b
-.neuralnet.train:
-1517
-.neuralnet.validate prediction on 10000 test MNIST images
-74
-prediction accuracy:93.84
-```
-So we achieve ~94% accuracy with a training time of 1.5 seconds.
-
-Let's try now and increase the number of epochs to 5
-
-```
- Train on 60000 MNIST images
-Model Params:
-k        | 32
-l        | 1
-eta      | 0.3333333
-batchsize| 64
-numepochs| 5
-history  | 0b
-.neuralnet.train:
-7654
-.neuralnet.validate prediction on 10000 test MNIST images
-74
-prediction accuracy:95.86
-```
-
-The prediction accuracy improved to almost 96%, but at a cost of taking almost 8 seconds to train the network.
+```select step,avgC,devC,startC,endC from res1[`nn]```

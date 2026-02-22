@@ -18,6 +18,8 @@ Hidden: 32 neurons with ReLU
 Output: 2 neurons with softmax for [down, up].
 \
 
+// ------ Core logic: FF and Backprop ------
+
 / feed forward: each layer is derived as a linear comb of the prev layer , with an activation func applied on top of that
 / to transform/squeeze the output into the desired one
 / eg sigmoid to convert a vector input with w weights - sigmoid(w*n) - to 0-1 probability
@@ -34,26 +36,6 @@ zf:{[b;w;a] b+w$a};
 / When forward feeding we should calculate and store both z and a=f[z]
 / .neuralnet.feedfwd[FP`f]\[I;W;B]
 feedfwd:{[f;l;w;b] ([a:f z;z:z:zf[b;w;l`a];w;b;d:()]) };
-
-/ initiate weights: this is an array of weight matrices, one W matrix for each layer
-/ n: input length
-/ k: hidden layers length
-/ l: number of hidden layers
-/ m: output length
-initw:{[n;k;l;m]
- r:sqrt 6%n; / Uniform He: recommended for randomisation of weights
- wi:{[r;n;k]r*-1+n?2f}[r;n]each til k;
- wk:{[r;k;l]{[r;k;l]r*-1+k?2f}[r;k]each til k}[r;k]each til l-1;
- wo:{[r;k;m]r*-1+k?2f}[r;k]each til m;
- enlist[wi],wk,enlist wo
- };
-
-/ initiate bias vectors: array of l+1 bias vectors
-/ e: initialize to zeros or small constants.
-initb:{[k;l;m;e]
- b:l#enlist k#e;
- b,enlist m#e
- };
 
 / dCdw(l): dCda * dadz * dzdw (chain rule)
 / -> del of Cost function wrt activation a at layer l * del of activation function wrt to linear output z at layer l * d of z wrt w
@@ -80,14 +62,56 @@ backpropagate:{[fp;y;a]
  .neuralnet.nabla[dcda;fp`df] scan a
  };
 
-/ train: pm
-/ x:        input data: s-legnth list of n sized vectors (sxn), one for each sampled input
+// ------ Train and Predict ------
+
+train1NN:{[pm;wb;xy]
+ x:xy 0;y:xy 1; s:.z.n;
+ I:([a:x; z:`float$(); w:(); b:(); d:()]);
+ / here W at layer l W[l] and B[l] are the weights applied to compute z[l] and a[l]
+ / we append initial a[0] (input data X) since we will need a[l-1] in backprop
+ P:I,.neuralnet.feedfwd[pm[`FP; `f]]\[I; wb`W; wb`B];
+ fftime:.z.n-s;
+ / last record of Prediction P will be the prediction we need to compare with output y;
+ P:update a:pm[`FP; `ff] each z from P where i=max i; / final layer should apply final layer activation function eg softmax
+ s:.z.n;
+ G:.neuralnet.backpropagate[pm`FP; y] P;
+ bptime:.z.n-s;
+ `G`Y`C`fftime`bptime`step!(reverse G;y;pm[`FP; `c][last[P] `a;y];fftime;bptime;1)
+ };
+
+train1B:{[pm;wb;batchids]
+ / select the (x;y) for the mini-batch's sampled indices
+ Y:pm[`Y] batchids; X:pm[`X] batchids;
+ / neural nets backpropagation for all (x;y) in the mini-batch
+ nns:.Q.fc[train1NN[pm;wb]each;flip (X;Y)]; / parallelise
+ / average the gradients across the training batch
+ l:pm[`l]+1;
+ Cw:l#avg nns[; `G; `nabla_cw];
+ Cb:l#avg nns[; `G; `d];
+ / use an optimiser like gradient decent to update the parameters
+ w:l#nns[0;`G;`w];
+ b:l#nns[0;`G;`b];
+ `W`B`avgC`devC`startC`endC`fftime`bptime`step!(
+  w-pm[`eta]*Cw;
+  b-pm[`eta]*Cb;
+  avg nns`C;
+  dev nns`C;
+  first nns`C;
+  last nns`C;
+  wb[`fftime]+sum nns`fftime;
+  wb[`bptime]+sum nns`bptime;
+  wb[`step]+sum nns`step)
+ };
+
+/ train: MiniBatch SGD
+/ X:        input data: s-legnth list of n sized vectors (sxn), one for each sampled input
 /           e.g. for classifying numbers 0-9, we need s=sample size, say 100 images, by n=900*700=630k pixels
 /            for a chess board s=sample size of different positions, by n=64
 /            predicting a price movement, s=1000 samples by n=23=20 past returns+1 volatility+1 volume feature+1 orderbook imbalance
-/ y:        output data: Y-length list of m sized vectors (Yxm), one for each output.
+/ Y:        output data: Y-length list of m sized vectors (Yxm), one for each output.
 /           e.g for classifying numbers 0-9, we need 10 sets of m=10-length 0/1 outputs, (1 0 0 0 0 0 0 0 0 0;0 1 0 0 0 0 0 0 0 0;..)
 /           for up/down/same probabilities we need Y sets of m=3 (1 0 0;0 1 0;0 0 1),etc Y being the number of available sampled data
+/ avgx/devx: avg and deviation of input X set. use these to normalise test X.
 / k:        hidden layers length
 / l:        number of hidden layers
 / e:        zero or small constant to initialise bias vector
@@ -105,70 +129,70 @@ backpropagate:{[fp;y;a]
 /           rough rule: S/batch_size ~= 50-200
 / numepochs:number of epochs: each epoch is the training set, and for each epoch we sample B size bathces
 / n:input vector length k:hidden layer length; l: num of hidden layers; m:output vector length
-init:{[([x;y;k;l;e;eta;hactivf;hactivf_d;activf;cost;cost_d;batchsize;numepochs;history])]
- n:count first x;m:count first y;
- (!) . flip (
-  (`X;x);
-  (`Y;y);
-  (`n;n);
-  (`k;k);
-  (`l;l);
-  (`m;m);
-  (`e;e);
-  (`eta;eta);
-  (`batchsize;batchsize);
-  (`numepochs;numepochs);
-  (`history;history);
-  (`FP;`f`df`ff`c`dc!(hactivf;hactivf_d;activf;cost;cost_d)); / f : hidden layer activation function df: derivative of f ff: final layer activation function
-  (`W; .neuralnet.initw . (n;k;l;m));
-  (`B; .neuralnet.initb . (k;l;m;e)))
- };
-
-train1NN:{[pm;wb;xy]
- x:xy 0;y:xy 1;
- I:([a:x; z:`float$(); w:(); b:(); d:()]);
- / last record of Prediction P will be the prediction we need to compare with output y;
- s:.z.n;
- P:I,.neuralnet.feedfwd[pm[`FP; `f]]\[I; wb`W; wb`B];
- fftime:.z.n-s;
- P:update a:pm[`FP; `ff] each z from P where i=max i; / final layer should apply final layer activation function eg softmax
- s:.z.n;
- G:.neuralnet.backpropagate[pm`FP; y] P;
- bptime:.z.n-s;
- `G`Y`C`fftime`bptime`step!(reverse G;y;pm[`FP; `c][y; first[G] `a];fftime;bptime;1)
- };
-
-train1b:{[pm;wb;batchids]
- / select the (x;y) for the mini-batch's sampled indices
- Y:pm[`Y] batchids; X:pm[`X] batchids;
- / neural nets backpropagation for all (x;y) in the mini-batch
- nns:.Q.fc[train1NN[pm;wb]each;flip (X;Y)]; / parallelise
- / average the gradients across the training batch
- l:pm[`l]+1;
- Cw:l#avg nns[; `G; `nabla_cw];
- Cb:l#avg nns[; `G; `d];
- / use an optimiser like gradient decent to update the parameters
- w:l#nns[0;`G;`w];
- b:l#nns[0;`G;`b];
- `W`B`fftime`bptime`step!(w-pm[`eta]*Cw;b-pm[`eta]*Cb;wb[`fftime]+sum nns`fftime;wb[`bptime]+sum nns`bptime;nns[`step]+sum nns`step)
- };
-
-train:{[pm]
+trainMBSGD:{[pm]
  batchids:raze {[bs;s]bs cut neg[s]?s}[pm`batchsize]each pm[`numepochs]#count pm`X;
- initstate:(`W`B#pm),([step:0;fftime:0D;bptime:0D]);
- $[pm`history;train1b[pm]\[initstate;batchids];train1b[pm]/[initstate;batchids]] / iterate over batches using the weights estimator as an input to the next iteration
+ initstate:(`W`B#pm),([avgC:0n;devC:0n;startC:0n;endC:0n;step:0;fftime:0D;bptime:0D]);
+ / iterate over batches using each steps estimated weights as an input to the next iteration
+ $[pm`history;train1B[pm]\[initstate;batchids];train1B[pm]/[initstate;batchids]]
  };
 
 argmax:{where x=max x};
+
+predict:{[hactivf;activf;nn;x]
+ P:.neuralnet.feedfwd[hactivf]\[([a:x; z:`float$(); w:(); b:(); d:()]);nn`W;nn`B];
+ argmax activf last[P`z]
+ };
+
+validate1:{[hactivf;activf;nn;x;y] all where[y]=predict[hactivf;activf;nn;x]};
 
 validate:{[([x;y;hactivf;activf;nn;history])]
  if[history;nn:last nn];
  validate1[hactivf;activf;nn]'[x;y]
  };
 
-validate1:{[hactivf;activf;nn;x;y]
- P:.neuralnet.feedfwd[hactivf]\[([a:x; z:`float$(); w:(); b:(); d:()]);nn`W;nn`B];
- all where[y]=argmax activf last[P`z]
+// ------ Init Stuff ------
+
+setSeed:{system"S ",string x;-1"Seed S:",string system"S";};
+
+/ initiate weights: this is an array of weight matrices, one W matrix for each layer
+/ n: input length
+/ k: hidden layers length
+/ l: number of hidden layers
+/ m: output length
+initw:{[n;k;l;m]
+ r:sqrt 6%n; / Uniform He: recommended for randomisation of weights
+ wi:{[r;n;k]r*-1+n?2f}[r;n]each til k;
+ wk:{[r;k;l]{[r;k;l]r*-1+k?2f}[r;k]each til k}[r;k]each til l-1;
+ wo:{[r;k;m]r*-1+k?2f}[r;k]each til m;
+ enlist[wi],wk,enlist wo
+ };
+
+/ initiate bias vectors: array of l+1 bias vectors
+/ e: initialize to zeros or small constants.
+initb:{[k;l;m;e]
+ b:l#enlist k#e;
+ b,enlist m#e
+ };
+
+initParam:{[pm]
+ if[`Seed in key pm;.neuralnet.setSeed pm`Seed];
+ n:count first pm`X;m:count first pm`Y;
+ pm,
+ (!) . flip (
+  (`n;n);
+  (`m;m);
+  (`FP;`f`df`ff`c`dc!(pm`hactivf`hactivf_d`activf`cost`cost_d)); / f : hidden layer activation function df: derivative of f ff: final layer activation function
+  (`W; .neuralnet.initw . (n;pm`k;pm`l;m));
+  (`B; .neuralnet.initb . (pm`k;pm`l;m;pm`e)))
+ };
+
+/ pm:`x`avgx`devx!(..)
+/ avgx devx are optional:should be calculated for train data, and passed *from* train data values when testing (predicting)
+normalise:{[pm]
+ rx:raze x:x%max over x:pm`x;
+ ax:$[`avgx in key pm;pm`avgx;avg rx];
+ dx:$[`devx in key pm;pm`devx;dev rx];
+ `x`normx`avgx`devx!(pm`x;(x-ax)%dx;ax;dx)
  };
 
 \d .
@@ -179,12 +203,6 @@ sigmoid_d:{x[y]*1-x[y]}sigmoid; / sigmoid derivative : f'(x)=f(x)(1-f(x))
 relu: 0f|;
 mse:{.5*avg xexp[x-y;2]};
 mse_d:{2*x-y};
-softmax:{ex%sum ex:exp x};
+softmax:{[t;x]ex%sum ex:exp x%t}; / t:temperature x:data
 xentropy:{neg y wsum log x} / y: target (1,0,0) etc x: softmax(final layer output)
 xentropy_d:{x-y};  / https://levelup.gitconnected.com/killer-combo-softmax-and-cross-entropy-5907442f60ba
-
-readMNIST:{[typ;n]
- / MNIST dataset: https://drive.google.com/file/d/1eEKzfmEu6WKdRlohBQiqi3PhW_uIVJVP/view
- r:$[n;n#;::]read0 hsym `$getenv[`HOME],"/Downloads/MNIST_CSV/mnist_",string[typ],".csv";
- flip "I"$csv vs/:r
- };
