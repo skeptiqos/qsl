@@ -405,7 +405,7 @@ We want to calculate the rate of cost change when changing the weight:
  ```
  Therefore: ```dCdw = a[l-1] mmu delta[l]```
 
-reference: http://neuralnetworksanddeeplearning.com/chap2.html?utm_source=perplexity
+reference: http://neuralnetworksanddeeplearning.com/chap2.html
 
 ## Minibatch Stochastic Gradient Descent
 

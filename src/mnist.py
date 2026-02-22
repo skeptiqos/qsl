@@ -2,9 +2,10 @@ import numpy as np
 import csv
 from PIL import Image
 import argparse
+import os
 
 parser = argparse.ArgumentParser(description="Read single CSV row")
-parser.add_argument("--csv",default="/Users/alpha/Downloads/MNIST_CSV/mnist_test.csv", help="Path to CSV file")
+parser.add_argument("--csv",default=os.getenv('HOME')+"/Downloads/MNIST_CSV/mnist_test.csv", help="Path to CSV file")
 parser.add_argument("--ri",type=int, help="Zero-based row index")
 args = parser.parse_args()
 
