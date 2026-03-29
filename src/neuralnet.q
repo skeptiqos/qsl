@@ -1,25 +1,6 @@
 \d .neuralnet
 
-/
-Input layer length
-Count how many input features you use per example (per time step or per window).
-Example: if for each sample you feed 20 past returns, 3 technical indicators, and 1 volume feature, your input vector length is
- 20+3+1=24.
-
-Hidden layer length
-The hidden layer size is a hyperparameter. it just needs to be compatible with matrix multiplication (input_size × hidden_size, hidden_size × 2, etc.).
-Typically 16, 32, 64, etc., and tuned via validation:
-Too small: underfits, can’t capture patterns.
-Too large: overfits, trains slower.
-
-Simple model example:
-Input: length = number of features (e.g., 24)
-Hidden: 32 neurons with ReLU
-Output: 2 neurons with softmax for [down, up].
-\
-
 // ------ Core logic: FF and Backprop ------
-
 / feed forward: each layer is derived as a linear comb of the prev layer , with an activation func applied on top of that
 / to transform/squeeze the output into the desired one
 / eg sigmoid to convert a vector input with w weights - sigmoid(w*n) - to 0-1 probability
@@ -37,17 +18,6 @@ zf:{[b;w;a] b+w$a};
 / .neuralnet.feedfwd[FP`f]\[I;W;B]
 feedfwd:{[f;l;w;b] ([a:f z;z:z:zf[b;w;l`a];w;b;d:()]) };
 
-/ dCdw(l): dCda * dadz * dzdw (chain rule)
-/ -> del of Cost function wrt activation a at layer l * del of activation function wrt to linear output z at layer l * d of z wrt w
-/ Let delta be the approximate error wrt to activation at layer l
-/ delta(L): dCdz: dCda * dadz    / L is output layer
-/ dCda: 2(a-y) for c=(a-y)xexp 2 / y is output
-/ delta(l): dCdz: (T(W(l+1)) * delta(l+1)) * dadz / T(W) is weights transpose of the next layer. ie apply the transposte of weights to the error d(l) to get the error at d(l-1)
-/ dadz: derivative of activation func, da
-/ dzdw: a[l-1], a of previous layer
-/ therefore: dCdw = a[l-1] mmu delta[l]
-/ l: layer results: eg l`z l`a. pl: previous layer
-/ ref: http://neuralnetworksanddeeplearning.com/chap2.html?utm_source=perplexity
 nabla:{[dcda;dadz;l;pl]
  z:l`z;d:l`d;i:l`l;w:l`w; / nw -> next w (careful on the indexing)
  delta:$[not i;dcda;flip[w] mmu d] * dadz z;
@@ -63,7 +33,6 @@ backpropagate:{[fp;y;a]
  };
 
 // ------ Train and Predict ------
-
 train1NN:{[pm;wb;xy]
  x:xy 0;y:xy 1; s:.z.n;
  I:([a:x; z:`float$(); w:(); b:(); d:()]);
@@ -79,9 +48,9 @@ train1NN:{[pm;wb;xy]
  `G`Y`C`fftime`bptime`step!(reverse G;y;pm[`FP; `c][last[P] `a;y];fftime;bptime;1)
  };
 
-train1B:{[pm;wb;batchids]
+train1B:{[pm;wb]
  / select the (x;y) for the mini-batch's sampled indices
- Y:pm[`Y] batchids; X:pm[`X] batchids;
+ Y:pm[`Y] batchids:first wb`batchids; X:pm[`X] batchids;
  / neural nets backpropagation for all (x;y) in the mini-batch
  nns:.Q.fc[train1NN[pm;wb]each;flip (X;Y)]; / parallelise
  / average the gradients across the training batch
@@ -91,16 +60,19 @@ train1B:{[pm;wb;batchids]
  / use an optimiser like gradient decent to update the parameters
  w:l#nns[0;`G;`w];
  b:l#nns[0;`G;`b];
- `W`B`avgC`devC`startC`endC`fftime`bptime`step!(
+ avgC:avg nns`C;
+ `W`B`avgC`devC`startC`endC`fftime`bptime`step`costreduction`batchids!(
   w-pm[`eta]*Cw;
   b-pm[`eta]*Cb;
-  avg nns`C;
+  avgC;
   dev nns`C;
   first nns`C;
   last nns`C;
   wb[`fftime]+sum nns`fftime;
   wb[`bptime]+sum nns`bptime;
-  wb[`step]+sum nns`step)
+  wb[`step]+sum nns`step;
+  (wb[`costreduction]*1-pm[`cremal])+pm[`cremal]*avgC;
+  1 _ wb`batchids)
  };
 
 / train: MiniBatch SGD
@@ -131,9 +103,10 @@ train1B:{[pm;wb;batchids]
 / n:input vector length k:hidden layer length; l: num of hidden layers; m:output vector length
 trainMBSGD:{[pm]
  batchids:raze {[bs;s]bs cut neg[s]?s}[pm`batchsize]each pm[`numepochs]#count pm`X;
- initstate:(`W`B#pm),([avgC:0n;devC:0n;startC:0n;endC:0n;step:0;fftime:0D;bptime:0D]);
+ initstate:(`W`B#pm),([avgC:0;devC:0n;startC:0n;endC:0n;fftime:0D;bptime:0D;step:0;costreduction:1;batchids:batchids]);
+ stopcond:{all (x>z`step;y<z`costreduction;count z`batchids)}[pm`maxsteps;pm`crthresh];
  / iterate over batches using each steps estimated weights as an input to the next iteration
- $[pm`history;train1B[pm]\[initstate;batchids];train1B[pm]/[initstate;batchids]]
+ $[pm`history;train1B[pm]\[stopcond;initstate];train1B[pm]/[stopcond;initstate]]
  };
 
 argmax:{where x=max x};

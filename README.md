@@ -3,6 +3,10 @@ q statistical learning
 
 A library for statistical and machine learning implemented in kdb+/q.
 
+# deps
+
+This repo uses qutil to load dependencies. A great library from https://github.com/nugend/qutil
+
 # dtl 
 
 * decision tree learning
@@ -407,6 +411,26 @@ We want to calculate the rate of cost change when changing the weight:
 
 reference: http://neuralnetworksanddeeplearning.com/chap2.html
 
+## Inputs and Parameters
+
+### Input layer length
+Number of input features per example (per time step or per window)
+
+### Hidden layer length
+The hidden layer size is a hyperparameter. it just needs to be compatible with matrix multiplication (input_size × hidden_size, hidden_size × 2, etc.).
+
+Typically 16, 32, 64, etc., and tuned via validation:
+- Too small: underfits, can’t capture patterns.
+- Too large: overfits, trains slower.
+
+### Simple model example:
+Time series prediction: sample 20 past returns, 3 technical indicators, and 1 volume feature.
+
+- Input: length = number of features (e.g., 24)
+- Hidden: 32 neurons with ReLU
+- Output: 2 neurons with softmax for [down, up].
+
+
 ## Minibatch Stochastic Gradient Descent
 
 Processes batches of data obtained by a random permutation of the training data. Each observation is processed only once per epoch, albeit in random order. An epoch is one complete pass of the training dataset.
@@ -448,6 +472,28 @@ avgC      endC      devC
 -----------------------------
 0.1505804 0.1531289 0.5288206
 ```
+
+### Early Stop
+
+Input parameter keys `maxsteps` and `crthresh` can be used to stop the training early. This ensures that the training won't exceed a maximum number of steps, or will exit early if the cost reduction falls below a threshold `crthresh`. 
+For the cost reduction check a low pass filter such as an ema is used, with lambda specified by input param `cremal`
+
+```
+select k,l,eta,batchsize,numepochs,step,maxsteps,endC,costreduction,crthresh,traintime,accuracy from summary where numepochs=20
+k  l eta  batchsize numepochs step    maxsteps endC        costreduction crthresh traintime            accuracy
+---------------------------------------------------------------------------------------------------------------
+64 3 0.15 256       20        1200000 5000000  0.04237298  0.017701      0.001    0D00:01:22.762443000 97.07   
+64 3 0.15 256       20        1000192 1000000  0.006727546 0.02453237    0.001    0D00:01:09.205627000 97.81   
+64 3 0.15 256       20        608960  5000000  0.03223417  0.04998835    0.05     0D00:00:42.122126000 97.33
+```
+We observe that for a configuration with learning rate 0.15, 20 epochs and 3 hidden layers with 64 states each, the training took:
+- 1.2 million steps and completed in 1 minute and 22 seconds when run without early stop conditions
+- 1 minute and 9 seconds when stopping at 1 million steps
+- 42 seconds when stopping at a cost reduction threshold of 0.05
+
+In all cases, the accuracy was above 97%, with the early stop conditions achieving a slightly higher rate, demonstrating that beyond a specific point, any gains were immaterial and due to random variance.
+
+![Tradining Cost Reduction .png](img%2FTradining%20Cost%20Reduction%20.png)
 
 ## Prediction
 

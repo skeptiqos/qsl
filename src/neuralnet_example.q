@@ -25,6 +25,7 @@ initTrainPredict:{[ixyraw;pxyraw;pmi]
        hactivf:relu; hactivf_d: >[;0]; activf:softmax .99;
        cost:xentropy; cost_d:xentropy_d;
        batchsize:64; numepochs:1;
+       maxsteps:5000000;cremal:.01;crthresh:0.001;   / cost reduction covergence ema lambda and threshold below which it is satisfactory to stop
        history:0b]);
  pm0:pmd,pmi;
  pm:.neuralnet.initParam[pm0];
@@ -50,20 +51,19 @@ pxyraw:readMNIST[`test;0];
 res1:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.1;batchsize:64;numepochs:1])];
 res2:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.1;batchsize:64;numepochs:5])];
 res3:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.1;batchsize:128;numepochs:10])];
-res4:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.15;batchsize:64;numepochs:1])];
-res5:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.15;batchsize:64;numepochs:5])];
-res6:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.15;batchsize:128;numepochs:10])];
-res7:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.15;batchsize:256;numepochs:20])];
-res8:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.15;batchsize:512;numepochs:10])];
-
+res4:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;eta:0.15;batchsize:256;numepochs:20])];
+res5:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;eta:0.15;batchsize:256;numepochs:20;maxsteps:1000000])];
+res6:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;eta:0.15;batchsize:256;numepochs:20;crthresh:0.05])];
 /res0[`nn;`B]~last res1[`nn;`B]
 
 / summary stats
 summary:{([accuracy:x[`predict]`accuracy]),
-  (exec endC:last avgC,sum fftime,sum bptime,last step from x`nn),
+  (exec endC:last avgC,sum fftime,sum bptime,last step,last costreduction from x`nn),
   (`traintime`predicttime#x),
-  `k`l`e`eta`batchsize`numepochs# x`pm}each (res1;res2;res3;res4;res5;res6;res7;res8);
+  `k`l`e`eta`batchsize`numepochs`maxsteps`crthresh# x`pm}each (res1;res2;res3;res4;res5;res6);
 
-show select k,l,eta,batchsize,numepochs,step,accuracy,endC,traintime from summary;
+show select k,l,eta,batchsize,numepochs,step,maxsteps,endC,costreduction,crthresh,traintime,accuracy from summary;
 / look at Cost function over training
 select step,avgC,devC,startC,endC from res1[`nn]
+1_ update sigcr:maC>0.05 from update maC:ema[.01]avgC from select step,avgC,devC,startC,endC,costreduction from res4[`nn]
+
