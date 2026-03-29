@@ -1,0 +1,7 @@
+*.iws
+*.iml
+*.ipr
+_config.yml
+/AGENTS.md
+/.kdbinb/
+/.idea/
