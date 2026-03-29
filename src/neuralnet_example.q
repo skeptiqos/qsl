@@ -21,9 +21,10 @@ initTrainPredict:{[ixyraw;pxyraw;pmi]
  x:xy[`X];
  / pm defaults
  pmd:([X:x`normx; Y:xy`Y; avgx:x`avgx; devx:x`devx;
-       k:32; l:1; e:x`avgx; eta:0.1;
+       k:32; l:1; e:x`avgx;
        hactivf:relu; hactivf_d: >[;0]; activf:softmax .99;
        cost:xentropy; cost_d:xentropy_d;
+       updwf:(`static;([eta:0.1]));
        batchsize:64; numepochs:1;
        maxsteps:5000000;cremal:.01;crthresh:0.001;   / cost reduction covergence ema lambda and threshold below which it is satisfactory to stop
        history:0b]);
@@ -48,21 +49,22 @@ ixyraw:readMNIST[`train;0];
 pxyraw:readMNIST[`test;0];
 
 /res0:initTrainPredict[ixyraw;pxyraw;()!()];
-res1:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.1;batchsize:64;numepochs:1])];
-res2:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.1;batchsize:64;numepochs:5])];
-res3:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;eta:0.1;batchsize:128;numepochs:10])];
-res4:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;eta:0.15;batchsize:256;numepochs:20])];
-res5:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;eta:0.15;batchsize:256;numepochs:20;maxsteps:1000000])];
-res6:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;eta:0.15;batchsize:256;numepochs:20;crthresh:0.05])];
-/res0[`nn;`B]~last res1[`nn;`B]
+res1:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`static;([eta:0.1]));batchsize:64;numepochs:1])];
+res2:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`static;([eta:0.1]));batchsize:64;numepochs:5])];
+res3:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`static;([eta:0.1]));batchsize:128;numepochs:10])];
+res4:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;updwf:(`static;([eta:0.15]));batchsize:256;numepochs:20])];
+res5:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;updwf:(`static;([eta:0.15]));batchsize:256;numepochs:20;maxsteps:1000000])];
+res6:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;updwf:(`static;([eta:0.15]));batchsize:256;numepochs:20;crthresh:0.05])];
+res7:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`adam;([m1:.9;m2:.999;e:1e-8;a:.001]));batchsize:64;numepochs:1])];
+res8:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;updwf:(`adam;([m1:.9;m2:.999;e:1e-8;a:.001]));batchsize:256;numepochs:20;maxsteps:1000000])];
 
 / summary stats
 summary:{([accuracy:x[`predict]`accuracy]),
   (exec endC:last avgC,sum fftime,sum bptime,last step,last costreduction from x`nn),
   (`traintime`predicttime#x),
-  `k`l`e`eta`batchsize`numepochs`maxsteps`crthresh# x`pm}each (res1;res2;res3;res4;res5;res6);
+  `k`l`e`updwf`batchsize`numepochs`maxsteps`crthresh# x`pm}each (res1;res2;res3;res4;res5;res6;res7;res8);
 
-show select k,l,eta,batchsize,numepochs,step,maxsteps,endC,costreduction,crthresh,traintime,accuracy from summary;
+show select k,l,eta:{x[1]} each updwf,batchsize,numepochs,step,maxsteps,endC,costreduction,crthresh,traintime,accuracy from summary;
 / look at Cost function over training
 select step,avgC,devC,startC,endC from res1[`nn]
 1_ update sigcr:maC>0.05 from update maC:ema[.01]avgC from select step,avgC,devC,startC,endC,costreduction from res4[`nn]

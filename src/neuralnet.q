@@ -48,6 +48,18 @@ train1NN:{[pm;wb;xy]
  `G`Y`C`fftime`bptime`step!(reverse G;y;pm[`FP; `c][last[P] `a;y];fftime;bptime;1)
  };
 
+updwf.static:{[pm] pm[`w]-pm[`eta]*pm`g};
+updwf.adam:{[pm]
+ m1:pm`m1;m2:pm`m2;e:pm`e;a:pm`a;t:pm`t;pp:pm`pp;pq:pm`pq;g:pm`g;w:pm`w;
+ p:(m1*pp)+(1-m1)*g;
+ q:(m2*pq)+(1-m2)*g*g;
+ phat:p%1-m1 xexp t;
+ qhat:q%1-m2 xexp t;
+ (w-a*phat%e+sqrt qhat;p;q)
+ };
+
+applyUpdWf:{value (updwf x 0;x[1],y)};
+
 train1B:{[pm;wb]
  / select the (x;y) for the mini-batch's sampled indices
  Y:pm[`Y] batchids:first wb`batchids; X:pm[`X] batchids;
@@ -61,9 +73,16 @@ train1B:{[pm;wb]
  w:l#nns[0;`G;`w];
  b:l#nns[0;`G;`b];
  avgC:avg nns`C;
- `W`B`avgC`devC`startC`endC`fftime`bptime`step`costreduction`batchids!(
-  w-pm[`eta]*Cw;
-  b-pm[`eta]*Cb;
+ wpm:([w:w;g:Cw]);
+ bpm:([w:b;g:Cb]);
+ wpp:wpq:bpp:bpq:0n;
+ if[`static~first pm`updwf;nw:applyUpdWf[pm`updwf;wpm];nb:applyUpdWf[pm`updwf;bpm]];
+ if[`adam~first pm`updwf;
+   (nw;wpp;wpq):applyUpdWf[pm`updwf;wpm,([t:wb`batchid;pp:wb`wpp;pq:wb`wpq])];
+   (nb;bpp;bpq):applyUpdWf[pm`updwf;bpm,([t:wb`batchid;pp:wb`bpp;pq:wb`bpq])]];
+ `W`B`avgC`devC`startC`endC`fftime`bptime`step`batchid`wpp`wpq`bpp`bpq`costreduction`batchids!(
+  nw;
+  nb;
   avgC;
   dev nns`C;
   first nns`C;
@@ -71,6 +90,8 @@ train1B:{[pm;wb]
   wb[`fftime]+sum nns`fftime;
   wb[`bptime]+sum nns`bptime;
   wb[`step]+sum nns`step;
+  wb[`batchid]+1;
+  wpp;wpq;bpp;bpq;
   (wb[`costreduction]*1-pm[`cremal])+pm[`cremal]*avgC;
   1 _ wb`batchids)
  };
@@ -87,7 +108,7 @@ train1B:{[pm;wb]
 / k:        hidden layers length
 / l:        number of hidden layers
 / e:        zero or small constant to initialise bias vector
-/ eta:      learning rate
+/ updwf:    upwdate-weights function
 / hactivf:  hidden activation function: eg ReLU, used in modern Deep NNs, good for learning one class at a time by removing the negative components
 / activf:   activation function:
 /            sigmoid:for binary output 0-1/is or isnt/true or false. Can also be used with multi-labelling where output vector can have multiple ones eg (1 0 1)
@@ -103,7 +124,7 @@ train1B:{[pm;wb]
 / n:input vector length k:hidden layer length; l: num of hidden layers; m:output vector length
 trainMBSGD:{[pm]
  batchids:raze {[bs;s]bs cut neg[s]?s}[pm`batchsize]each pm[`numepochs]#count pm`X;
- initstate:(`W`B#pm),([avgC:0;devC:0n;startC:0n;endC:0n;fftime:0D;bptime:0D;step:0;costreduction:1;batchids:batchids]);
+ initstate:(`W`B#pm),([avgC:0;devC:0n;startC:0n;endC:0n;fftime:0D;bptime:0D;step:0;batchid:1;wpp:0;wpq:0;bpp:0;bpq:0;costreduction:1;batchids:batchids]);
  stopcond:{all (x>z`step;y<z`costreduction;count z`batchids)}[pm`maxsteps;pm`crthresh];
  / iterate over batches using each steps estimated weights as an input to the next iteration
  $[pm`history;train1B[pm]\[stopcond;initstate];train1B[pm]/[stopcond;initstate]]
@@ -169,6 +190,7 @@ normalise:{[pm]
  };
 
 \d .
+
 
 std:{(x-avg x)%dev x};
 sigmoid:{reciprocal 1+exp neg x};
