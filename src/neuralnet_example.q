@@ -24,7 +24,7 @@ initTrainPredict:{[ixyraw;pxyraw;pmi]
        k:32; l:1; e:x`avgx;
        hactivf:relu; hactivf_d: >[;0]; activf:softmax .99;
        cost:xentropy; cost_d:xentropy_d;
-       updwf:(`static;([eta:0.1]));
+       updwf:(`static;([eta:0.1]));gradclipc:0f;
        batchsize:64; numepochs:1;
        maxsteps:5000000;cremal:.01;crthresh:0.001;   / cost reduction covergence ema lambda and threshold below which it is satisfactory to stop
        history:0b]);
@@ -61,9 +61,10 @@ res7:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;updwf:(`
 summary:{last[x`validationstats],
   (exec finalAvgCost:last avgC,sum fftime,sum bptime,last step,last costreduction from x`nn),
    ((::;"n"$avg@)@'`traintime`predicttime#x),
-  `k`l`e`updwf`batchsize`numepochs`maxsteps`crthresh# x`pm}each (res1;res2;res3;res4;res5;res6;res7);
+  `k`l`e`updwf`batchsize`numepochs`maxsteps`crthresh`gradclipc# x`pm}each (res1;res2;res3;res4;res5;res6;res7);
 
-show select accuracy,finalAvgValCost:valcost,finalAvgCost,"f"$costreduction,k,l,eta:{x[1]} each updwf,batchsize,numepochs,step,maxsteps,crthresh,traintime,predicttime from summary;
+show select accuracy,finalAvgValCost:valcost,finalAvgCost,"f"$costreduction,k,l,eta:{x[1]} each updwf,batchsize,numepochs,step,maxsteps,crthresh,gradclipc,traintime,predicttime from summary;
 / look at Cost function over training
 fills (select step,avgC,devC,startC,endC,"f"$costreduction from res1[`nn]) lj `step xcol res1[`validationstats]
+fills (select step,avgC,devC,startC,endC,"f"$costreduction from res7[`nn]) lj `step xcol res7[`validationstats]
 

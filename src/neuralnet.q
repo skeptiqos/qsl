@@ -41,6 +41,12 @@ updwf.adam:{[pm]
  };
 applyUpdWf:{value (updwf x 0;x[1],y)};
 
+clipG:{[c;g]
+ if[not c;:g];
+ l2norm:{sqrt x$x} (raze/) g;
+ c*g%l2norm
+ };
+
 train1NN:{[pm;wb;xy]
  x:xy 0;y:xy 1; s:.z.n;
  I:([a:x; z:`float$(); w:(); b:(); d:()]);
@@ -61,10 +67,10 @@ train1B:{[pm;wb]
  nns:.Q.fc[train1NN[pm;wb]each;flip (X;Y)]; / parallelise
  / average the gradients across the training batch
  (l;avgC):(pm[`l]+1;avg nns`C);
- (Cw;Cb):l#'avg nns[;`G;`nabla_cw`d];
+ g:l#'avg nns[;`G;`nabla_cw`d];
+ (Cw;Cb):clipG[pm`gradclipc;g];
  (w;b):l#'nns[0;`G;`w`b];
  (wpm;bpm):(([w:w;g:Cw]);([w:b;g:Cb]));
- if[pm`clipgrad;];
  wpp:wpq:bpp:bpq:0n;
  / use a gradient decent optimiser (eg adam) to update the parameters
  if[`static~first pm`updwf;(nw;nb):(applyUpdWf[pm`updwf;wpm];applyUpdWf[pm`updwf;bpm])];
@@ -112,20 +118,22 @@ trainMBSGD:{[pm]
  $[pm`history;train1B[pm]\[stopcond;initstate];train1B[pm]/[stopcond;initstate]]
  };
 
-argmax:{where x=max x};
+argmax:{first where x=max x};
 
-predict:{[hactivf;activf;costf;nn;idx;x;y]
+/ validate1 (x;y) pair
+validate1:{[hactivf;activf;costf;nn;idx;x;y]
  s:.z.n;
  P:feedfwd[hactivf]\[([a:x; z:`float$(); w:(); b:(); d:()]);nn`W;nn`B];
  a:activf last P`z;
  prediction:argmax a;
- ([valstep:nn`step;prediction;success:all where[y]=prediction;valcost:costf[a;y];predicttime:.z.n-s])
+ issuccess:(y?1)=prediction; / first occurrence where y is true. works for classification, 1 for index of y in a set (eg numbers 0-9)
+ ([valstep:nn`step;prediction;success:issuccess;valcost:costf[a;y];predicttime:.z.n-s])
  };
 
-validate1:{[hactivf;activf;costf;nn;x;y;idx] predict[hactivf;activf;costf;nn idx;idx]'[x;y]};
+validateAtStepN:{[hactivf;activf;costf;nn;x;y;idx] validate1[hactivf;activf;costf;nn idx;idx]'[x;y]};
 
 validate:{[([x;y;hactivf;activf;costf;nn;history])]
- validate1[hactivf;activf;costf;nn;x;y]each distinct (100*til[cn div 100]),-1+cn:count nn  / predict every 100 steps and store validation cost
+ validateAtStepN[hactivf;activf;costf;nn;x;y]each distinct (100*til[cn div 100]),-1+cn:count nn  / predict every 100 steps and store validation cost
  };
 
 // ------ Init Stuff ------
