@@ -1,4 +1,5 @@
 \d .nnu
+argmax:{first where x=max x};
 std:{(x-avg x)%dev x};
 rmsnorm:{x*(1e-5+x$x) xexp -.5};
 sigmoid:{reciprocal 1+exp neg x};

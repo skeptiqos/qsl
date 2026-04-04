@@ -31,16 +31,14 @@ updwf.adam:{[pm]
  m1:pm`m1;m2:pm`m2;e:pm`e;a:pm`a;t:pm`t;pp:pm`pp;pq:pm`pq;g:pm`g;w:pm`w;
  (p;q):((m1*pp)+(1-m1)*g;(m2*pq)+(1-m2)*g*g);
  (phat;qhat):(p%1-m1 xexp t;q%1-m2 xexp t);
- (w-a*phat%e+sqrt qhat;p;q)
- };
+ (w-a*phat%e+sqrt qhat;p;q)};
 applyUpdWf:{value (updwf x 0;x[1],y)};
 
 / Gradient clipping w l2 norm
 clipG:{[c;g]
  if[not c;:g];
  l2norm:{sqrt x$x} (raze/) g;
- c*g%l2norm
- };
+ c*g%l2norm};
 
 train1NN:{[pm;wb;xy]
  x:xy 0;y:xy 1; s:.z.n;
@@ -52,8 +50,7 @@ train1NN:{[pm;wb;xy]
  / last record of Prediction P will be the prediction we need to compare with output y;
  P:update a:pm[`FP;`ff] each z from P where i=max i; / final layer should apply final layer activation function eg softmax
  s:.z.n; G:backpropagate[pm`FP;y] P;
- `G`Y`C`fftime`bptime`step!(reverse G;y;pm[`FP;`c][last[P]`a;y];fftime;.z.n-s;1)
- };
+ `G`Y`C`fftime`bptime`step!(reverse G;y;pm[`FP;`c][last[P]`a;y];fftime;.z.n-s;1)};
 
 train1B:{[pm;wb]
  / select the (x;y) for the mini-batch's sampled indices
@@ -76,8 +73,7 @@ train1B:{[pm;wb]
   wb[`fftime]+sum nns`fftime;wb[`bptime]+sum nns`bptime;wb[`step]+sum nns`step;wb[`batchid]+1;
   wpp;wpq;bpp;bpq;
   (wb[`costreduction]*1-pm[`cremal])+pm[`cremal]*avgC;
-  1 _ wb`batchids)
- };
+  1 _ wb`batchids)};
 
 / trainMBSGD: MiniBatch SGD
 trainMBSGD:{[pm]
@@ -85,26 +81,21 @@ trainMBSGD:{[pm]
  initstate:(`W`B#pm),([avgC:0f;devC:0n;startC:0n;endC:0n;fftime:0D;bptime:0D;step:0;batchid:1;wpp:0;wpq:0;bpp:0;bpq:0;costreduction:1f;batchids:batchids]);
  stopcond:{all (x>z`step;y<z`costreduction;count z`batchids)}[pm`maxsteps;pm`crthresh];
  / iterate over batches using each step's estimated weights as an input to the next iteration
- $[pm`history;train1B[pm]\[stopcond;initstate];train1B[pm]/[stopcond;initstate]]
- };
-
-argmax:{first where x=max x};
+ $[pm`history;train1B[pm]\[stopcond;initstate];train1B[pm]/[stopcond;initstate]]};
 
 / validate1 (x;y) pair
 validate1:{[hactivf;activf;costf;nn;idx;x;y]
  s:.z.n;
  P:feedfwd[hactivf]\[([a:x; z:`float$(); w:(); b:(); d:()]);nn`W;nn`B];
  a:activf last P`z;
- prediction:argmax a;
+ prediction:.nnu.argmax a;
  issuccess:(y?1)=prediction; / first occurrence where y is true. works for classification, 1 for index of y in a set (eg numbers 0-9)
- ([valstep:nn`step;prediction;success:issuccess;valcost:costf[a;y];predicttime:.z.n-s])
- };
+ ([valstep:nn`step;prediction;success:issuccess;valcost:costf[a;y];predicttime:.z.n-s])};
 
 validateAtStepN:{[hactivf;activf;costf;nn;x;y;idx] validate1[hactivf;activf;costf;nn idx;idx]'[x;y]};
 
 validate:{[([x;y;hactivf;activf;costf;nn;history])]
- validateAtStepN[hactivf;activf;costf;nn;x;y]each distinct (100*til[cn div 100]),-1+cn:count nn  / predict every 100 steps and store validation cost
- };
+ validateAtStepN[hactivf;activf;costf;nn;x;y]each distinct (100*til[cn div 100]),-1+cn:count nn};  / predict every 100 steps and store validation cost
 
 // ------ Init Stuff ------
 setSeed:{system"S ",string x;-1"Seed S:",string system"S";};
@@ -115,8 +106,7 @@ initw:{[n;k;l;m]
  wi:{[r;n;k]r*-1+n?2f}[r;n]each til k;
  wk:{[r;k;l]{[r;k;l]r*-1+k?2f}[r;k]each til k}[r;k]each til l-1;
  wo:{[r;k;m]r*-1+k?2f}[r;k]each til m;
- enlist[wi],wk,enlist wo
- };
+ enlist[wi],wk,enlist wo};
 
 / initiate bias vectors: array of l+1 bias vectors
 initb:{[k;l;m;e] (l#enlist k#e),enlist m#e};
@@ -127,13 +117,11 @@ normalise:{[pm]
  rx:raze x:x%max over x:pm`x;
  ax:$[`avgx in key pm;pm`avgx;avg rx];
  dx:$[`devx in key pm;pm`devx;dev rx];
- `x`normx`avgx`devx!(pm`x;(x-ax)%dx;ax;dx)
- };
+ `x`normx`avgx`devx!(pm`x;(x-ax)%dx;ax;dx)};
 
 prepData:{[xy;typ;pm]
  -1 string[typ]," on ",string[count xy`X]," data";
- `XD`Y!(.neuralnet.normalise[([x:xy`X]),pm];xy`Y)
- };
+ `XD`Y!(.neuralnet.normalise[([x:xy`X]),pm];xy`Y)};
 
 initParam:{[pmi]
  if[`Seed in key pmi;setSeed pmi`Seed];
@@ -153,14 +141,12 @@ initParam:{[pmi]
   (`m;m);
   (`FP;`f`df`ff`c`dc!(pm`hactivf`hactivf_d`activf`cost`cost_d)); / f : hidden layer activation function df: derivative of f ff: final layer activation function
   (`W; initw . (n;pm`k;pm`l;m));
-  (`B; initb . (pm`k;pm`l;m;pm`e)))
- };
+  (`B; initb . (pm`k;pm`l;m;pm`e)))};
 
 initTrainPredict:{[ixyraw;pxyraw;pmi]
  xy:prepData[ixyraw;`train;()!()];
  pm:initParam[pmi,xy];
- -1 "Model Params:"; show `X`Y _ pm;
- -1 ".neuralnet.train: MiniBatch Stochastic Gradient Decent";s:.z.n;
+ -1 "Model Params:"; show `X`Y _ pm; -1 ".neuralnet.train: MiniBatch Stochastic Gradient Decent";s:.z.n;
  nn:trainMBSGD[pm];
  -1 ".neuralnet.train time:",string traintime:.z.n-s;
  pxy:prepData[pxyraw;`test;`avgx`devx#pm]; / normalise test data vs the mean&dev used for the training data
