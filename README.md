@@ -444,14 +444,15 @@ Let's now train our model on the famous MNIST dataset of handwritten digits. We 
 ```
 $ q neuralnet_example.q -s 8  -c 18 204 -p 5001
 
-k  l eta batchsize numepochs step   accuracy endC       traintime           
-----------------------------------------------------------------------------
-32 1 0.1 64        1         60000  94.09    0.08636922 0D00:00:01.575325000
-32 1 0.1 64        5         300000 95.89    0.1434528  0D00:00:08.448250000
-32 1 0.1 128       10        600000 96.37    0.07722889 0D00:00:15.889291000
+k  l eta batchsize numepochs step   finalAvgCost finalAvgValCost traintime            accuracy
+----------------------------------------------------------------------------------------------
+32 1 0.1 64        1         60000  0.08533543   0.1938436       0D00:00:01.515485000 94.3    
+32 1 0.1 64        5         300000 0.09759882   0.1261892       0D00:00:08.607162000 96.28   
+32 1 0.1 128       10        600000 0.06630502   0.1153372       0D00:00:16.253030000 96.45   
+
 
 ```
-The single epoch achieves 94.1% accuracy, whereas training with 10 epochs increases the accuracy to 96.4%, but at the cost of taking 15 seconds to train vs the initial 1.6 
+The single epoch achieves 94.3% accuracy, whereas training with 10 epochs increases the accuracy to 96.45%, but at the cost of taking 16 seconds to train vs the initial 1.5
 
 We can plot the Cost reduction over training:
 
@@ -460,17 +461,18 @@ We can plot the Cost reduction over training:
 The cost has been reduced:
 ```
 q)select avg avgC,avg endC,avg devC from res1[`nn]
-avgC      endC      devC    
-----------------------------
-0.3188255 0.3046957 0.722756
+avgC      endC      devC     
+-----------------------------
+0.3183157 0.3032486 0.7222032
+q)
 q)select avg avgC,avg endC,avg devC from res2[`nn]
 avgC      endC      devC     
 -----------------------------
-0.1682634 0.1635196 0.5505956
+0.1682074 0.1613173 0.5506807
 q)select avg avgC,avg endC,avg devC from res3[`nn]
 avgC      endC      devC     
 -----------------------------
-0.1505804 0.1531289 0.5288206
+0.1506605 0.1528129 0.5286284
 ```
 
 ### Early Stop
@@ -479,19 +481,20 @@ Input parameter keys `maxsteps` and `crthresh` can be used to stop the training 
 For the cost reduction check a low pass filter such as an ema is used, with lambda specified by input param `cremal`
 
 ```
-select k,l,eta,batchsize,numepochs,step,maxsteps,endC,costreduction,crthresh,traintime,accuracy from summary where numepochs=20
-k  l eta  batchsize numepochs step    maxsteps endC        costreduction crthresh traintime            accuracy
----------------------------------------------------------------------------------------------------------------
-64 3 0.15 256       20        1200000 5000000  0.04237298  0.017701      0.001    0D00:01:22.762443000 97.07   
-64 3 0.15 256       20        1000192 1000000  0.006727546 0.02453237    0.001    0D00:01:09.205627000 97.81   
-64 3 0.15 256       20        608960  5000000  0.03223417  0.04998835    0.05     0D00:00:42.122126000 97.33
-```
-We observe that for a configuration with learning rate 0.15, 20 epochs and 3 hidden layers with 64 states each, the training took:
-- 1.2 million steps and completed in 1 minute and 22 seconds when run without early stop conditions
-- 1 minute and 9 seconds when stopping at 1 million steps
-- 42 seconds when stopping at a cost reduction threshold of 0.05
+q)show select k,l,eta:{x[1]} each updwf,batchsize,numepochs,step,maxsteps,crthresh,costreduction,finalAvgCost,finalAvgValCost:valcost,traintime,accuracy,predicttime from summary where i in 3 4 5
+k  l eta           batchsize numepochs step    maxsteps crthresh costreduction finalAvgCost finalAvgValCost traintime            accuracy predicttime         
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+64 2 (,`eta)!,0.15 128       20        1200000 5000000  0.001    0.005573949   0.004115625  0.09241909      0D00:01:08.618186000 97.69    0D00:00:00.000013178
+64 2 (,`eta)!,0.15 128       20        1000064 1000000  0.001    0.01122509    0.01389058   0.09828966      0D00:00:57.515600000 97.59    0D00:00:00.000013259
+64 2 (,`eta)!,0.15 128       20        389568  1000000  0.05     0.04992216    0.03356271   0.09285721      0D00:00:22.478917000 97.1     0D00:00:00.000013554
 
-In all cases, the accuracy was above 97%, with the early stop conditions achieving a slightly higher rate, demonstrating that beyond a specific point, any gains were immaterial and due to random variance.
+```
+We observe that for a configuration with learning rate 0.15, 20 epochs and 2 hidden layers with 64 states each, the training took:
+- 1.2 million steps and completed in 1 minute 8 seconds when running without early stop conditions
+- 57 seconds when stopping at around 1 million steps
+- 22 seconds when stopping at a cost reduction threshold of 0.05
+
+Although the first two scenarios achieve better training cost reduction, the last scenario trains at one third of the time, for similar validation cost (~0.09) and only slightly lower training accuracy of 97.1%
 
 ![Tradining Cost Reduction .png](img%2FTradining%20Cost%20Reduction%20.png)
 
@@ -502,15 +505,15 @@ Use ```.neuralnet.predict[hactivf;activf;nn;x]``` to make a prediction, passing 
 We can see that model 1 fails to predict the test sample with index 20:
 
 ```
-q)where res1[`predict;`Y;20]
+q)where res1[`pxy;`Y;20]
 ,9
-q){.neuralnet.predict[x[`pm]`hactivf;x[`pm]`activf;last x[`nn];x[`predict;`X;`normx]y]}[res1;20]
-,7
+q)res1[`prediction;20]
+7
 ```
 Whereas model 3 with the higher accuracy is able to:
 ```
-q)where res3[`predict;`Y;20]
+q)where res3[`pxy;`Y;20]
 ,9
-q){.neuralnet.predict[x[`pm]`hactivf;x[`pm]`activf;last x[`nn];x[`predict;`X;`normx]y]}[res3;20]
-,9
+q)res3[`prediction;20]
+9
 ```

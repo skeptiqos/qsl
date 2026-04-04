@@ -11,51 +11,18 @@ readMNIST:{[typ;n]
  X:flip 1_ S;   / each of the X is 28x28=784 pixels
  `X`Y!(X;Y)};
 
-prepData:{[xy;typ;pm]
- -1 string[typ]," on ",string[count xy`X]," data";
- `X`Y!(.neuralnet.normalise[([x:xy`X]),pm];xy`Y)
- };
-
-initTrainPredict:{[ixyraw;pxyraw;pmi]
- xy:prepData[ixyraw;`train;()!()];
- x:xy[`X];
- / pm defaults
- pmd:([X:x`normx; Y:xy`Y; avgx:x`avgx; devx:x`devx;
-       k:32; l:1; e:x`avgx;
-       hactivf:relu; hactivf_d: >[;0]; activf:softmax .99;
-       cost:xentropy; cost_d:xentropy_d;
-       updwf:(`static;([eta:0.1]));gradclipc:0f;
-       batchsize:64; numepochs:1;
-       maxsteps:5000000;cremal:.01;crthresh:0.001;   / cost reduction covergence ema lambda and threshold below which it is satisfactory to stop
-       history:0b]);
- pm0:pmd,pmi;
- pm:.neuralnet.initParam[pm0];
- -1 "Model Params:";
- show `X`Y _ pm;
- -1 ".neuralnet.train: MiniBatch Stochastic Gradient Decent";s:.z.n;
- nn:.neuralnet.trainMBSGD[pm];
- -1 ".neuralnet.train time:",string traintime:.z.n-s;
- / test data - predict
- pxy:prepData[pxyraw;`test;`avgx`devx#pm]; / normalise vs the mean&dev used for the training data
- -1 ".neuralnet.validate prediction on ",string[count pxyraw`X]," test data";
- validation:.neuralnet.validate[([x:pxy[`X]`normx;y:pxy`Y;hactivf:pm[`FP;`f];activf:pm[`FP;`ff];costf:pm[`FP;`c];nn;history:pm`history])];
- validationstats:select accuracy:{100*sum[x]%count x}success,avg valcost by valstep from raze validation;
- -1"prediction accuracy:",string[last[validationstats]`accuracy],"\n";
- `nn`pxy`prediction`validationstats`pm`traintime`predicttime!
- (nn;pxy;last[validation]`prediction;validationstats;pm;traintime;predicttime:last[validation]`predicttime)};
-
 / test with MNIST
 ixyraw:readMNIST[`train;0];
 pxyraw:readMNIST[`test;0];
 
 /res0:initTrainPredict[ixyraw;pxyraw;()!()];
-res1:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`static;([eta:0.1]));batchsize:64;numepochs:1])];
-res2:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`static;([eta:0.1]));batchsize:64;numepochs:5])];
-res3:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`static;([eta:0.1]));batchsize:128;numepochs:10])];
-res4:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;updwf:(`static;([eta:0.15]));batchsize:256;numepochs:20])];
-res5:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;updwf:(`static;([eta:0.15]));batchsize:256;numepochs:20;maxsteps:1000000])];
-res6:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;updwf:(`static;([eta:0.15]));batchsize:256;numepochs:30;maxsteps:1000000;crthresh:0.03])];
-res7:initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:3;updwf:(`adam;([m1:.9;m2:.999;e:1e-8;a:.001]));batchsize:256;numepochs:30;maxsteps:1000000;crthresh:0.03])];
+res1:.neuralnet.initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`static;([eta:0.1]));batchsize:64;numepochs:1])];
+res2:.neuralnet.initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`static;([eta:0.1]));batchsize:64;numepochs:5])];
+res3:.neuralnet.initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:32;l:1;updwf:(`static;([eta:0.1]));batchsize:128;numepochs:10])];
+res4:.neuralnet.initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:2;updwf:(`static;([eta:0.15]));batchsize:128;numepochs:20])];
+res5:.neuralnet.initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:2;updwf:(`static;([eta:0.15]));batchsize:128;numepochs:20;maxsteps:1000000])];
+res6:.neuralnet.initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:2;updwf:(`static;([eta:0.15]));batchsize:128;numepochs:20;maxsteps:1000000;crthresh:0.05])];
+res7:.neuralnet.initTrainPredict[ixyraw;pxyraw;([Seed:-314159i;history:1b;k:64;l:2;updwf:(`adam;([m1:.9;m2:.999;e:1e-8;a:.001]));batchsize:128;numepochs:20;maxsteps:1000000;crthresh:0.05])];
 
 / summary stats
 summary:{last[x`validationstats],
@@ -63,7 +30,8 @@ summary:{last[x`validationstats],
    ((::;"n"$avg@)@'`traintime`predicttime#x),
   `k`l`e`updwf`batchsize`numepochs`maxsteps`crthresh`gradclipc# x`pm}each (res1;res2;res3;res4;res5;res6;res7);
 
-show select accuracy,finalAvgValCost:valcost,finalAvgCost,"f"$costreduction,k,l,eta:{x[1]} each updwf,batchsize,numepochs,step,maxsteps,crthresh,gradclipc,traintime,predicttime from summary;
+show select k,l,eta:{x[1]`eta} each updwf,batchsize,numepochs,step,finalAvgCost,finalAvgValCost:valcost,traintime,accuracy from summary where i<3
+show select k,l,eta:{x[1]} each updwf,batchsize,numepochs,step,maxsteps,crthresh,costreduction,finalAvgCost,finalAvgValCost:valcost,traintime,accuracy,predicttime from summary;
 / look at Cost function over training
 fills (select step,avgC,devC,startC,endC,"f"$costreduction from res1[`nn]) lj `step xcol res1[`validationstats]
 fills (select step,avgC,devC,startC,endC,"f"$costreduction from res7[`nn]) lj `step xcol res7[`validationstats]

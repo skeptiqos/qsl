@@ -1,5 +1,6 @@
-\d .neuralnet
+.utl.require"qsl/src/nnutil.q";
 
+\d .neuralnet
 // ------ Core logic: FF and Backprop ------
 / feed forward: each layer is derived as a linear comb of the prev layer , with an activation func applied on top of that to transform/squeeze the output into the desired one
 / eg sigmoid to convert a vector input with w weights - sigmoid(w*n) - to 0-1 probability
@@ -41,6 +42,7 @@ updwf.adam:{[pm]
  };
 applyUpdWf:{value (updwf x 0;x[1],y)};
 
+/ Gradient clipping w l2 norm
 clipG:{[c;g]
  if[not c;:g];
  l2norm:{sqrt x$x} (raze/) g;
@@ -50,7 +52,7 @@ clipG:{[c;g]
 train1NN:{[pm;wb;xy]
  x:xy 0;y:xy 1; s:.z.n;
  I:([a:x; z:`float$(); w:(); b:(); d:()]);
- / here W at layer l W[l] and B[l] are the weights applied to compute z[l] and a[l]
+ / W at layer l W[l] and B[l] are the weights applied to compute z[l] and a[l]
  / we append initial a[0] (input data X) since we will need a[l-1] in backprop
  P:I,feedfwd[pm[`FP;`f]]\[I; wb`W; wb`B];
  fftime:.z.n-s;
@@ -158,18 +160,6 @@ initb:{[k;l;m;e]
  b,enlist m#e
  };
 
-initParam:{[pm]
- if[`Seed in key pm;setSeed pm`Seed];
- n:count first pm`X;m:count first pm`Y;
- pm,
- (!) . flip (
-  (`n;n);
-  (`m;m);
-  (`FP;`f`df`ff`c`dc!(pm`hactivf`hactivf_d`activf`cost`cost_d)); / f : hidden layer activation function df: derivative of f ff: final layer activation function
-  (`W; initw . (n;pm`k;pm`l;m));
-  (`B; initb . (pm`k;pm`l;m;pm`e)))
- };
-
 / pm:`x`avgx`devx!(..)
 / avgx devx are optional:should be calculated for train data, and passed *from* train data values when testing (predicting)
 normalise:{[pm]
@@ -179,14 +169,48 @@ normalise:{[pm]
  `x`normx`avgx`devx!(pm`x;(x-ax)%dx;ax;dx)
  };
 
-\d .
+prepData:{[xy;typ;pm]
+ -1 string[typ]," on ",string[count xy`X]," data";
+ `XD`Y!(.neuralnet.normalise[([x:xy`X]),pm];xy`Y)
+ };
 
-std:{(x-avg x)%dev x};
-sigmoid:{reciprocal 1+exp neg x};
-sigmoid_d:{x[y]*1-x[y]}sigmoid; / sigmoid derivative : f'(x)=f(x)(1-f(x))
-relu: 0f|;
-mse:{.5*avg xexp[x-y;2]};
-mse_d:{2*x-y};
-softmax:{[t;x]ex%sum ex:exp x%t}; / t:temperature x:data
-xentropy:{neg y wsum log x} / y: target (1,0,0) etc x: softmax(final layer output)
-xentropy_d:{x-y};  / https://levelup.gitconnected.com/killer-combo-softmax-and-cross-entropy-5907442f60ba
+initParam:{[pmi]
+ if[`Seed in key pmi;setSeed pmi`Seed];
+ X:pmi[`XD];
+ / pm defaults
+ pmd:([X:X`normx; Y:pmi`Y; avgx:X`avgx; devx:X`devx;
+       k:32; l:1; e:X`avgx;
+       hactivf:.nnu.relu; hactivf_d: >[;0]; activf:.nnu.softmax .999;
+       cost:.nnu.xentropy; cost_d:.nnu.xentropy_d;
+       updwf:(`static;([eta:0.1]));gradclipc:0f;
+       batchsize:64; numepochs:1;
+       maxsteps:5000000;cremal:.01;crthresh:0.001;   / cost reduction covergence ema lambda and threshold below which it is satisfactory to stop
+       history:0b]);
+ pm:pmd,pmi;
+ (n;m):count each first each pm`X`Y;
+ pm,
+ (!) . flip (
+  (`n;n);
+  (`m;m);
+  (`FP;`f`df`ff`c`dc!(pm`hactivf`hactivf_d`activf`cost`cost_d)); / f : hidden layer activation function df: derivative of f ff: final layer activation function
+  (`W; initw . (n;pm`k;pm`l;m));
+  (`B; initb . (pm`k;pm`l;m;pm`e)))
+ };
+
+initTrainPredict:{[ixyraw;pxyraw;pmi]
+ xy:prepData[ixyraw;`train;()!()];
+ pm:initParam[pmi,xy];
+ -1 "Model Params:"; show `X`Y _ pm;
+ -1 ".neuralnet.train: MiniBatch Stochastic Gradient Decent";s:.z.n;
+ nn:trainMBSGD[pm];
+ -1 ".neuralnet.train time:",string traintime:.z.n-s;
+ / test data - predict
+ pxy:prepData[pxyraw;`test;`avgx`devx#pm]; / normalise vs the mean&dev used for the training data
+ -1 ".neuralnet.validate prediction on ",string[count pxyraw`X]," test data";
+ validation:validate[([x:pxy[`XD]`normx;y:pxy`Y;hactivf:pm[`FP;`f];activf:pm[`FP;`ff];costf:pm[`FP;`c];nn;history:pm`history])];
+ validationstats:select accuracy:{100*sum[x]%count x}success,avg valcost by valstep from raze validation;
+ -1"prediction accuracy:",string[last[validationstats]`accuracy],"\n";
+ `nn`pxy`prediction`validationstats`pm`traintime`predicttime!
+ (nn;pxy;last[validation]`prediction;validationstats;pm;traintime;predicttime:last[validation]`predicttime)};
+
+\d .
