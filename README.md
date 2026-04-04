@@ -361,7 +361,12 @@ A NN is a linear model `z=b+Wa`, where `b` is a bias vector, `W` a weights matri
 Importantly, a NN includes and activation funciton `f[z]` to allow for non-linear relationships in the data.
 
 For building the NN we require two steps:
-1. A feed-forward mechanism to implement the actual network prediction
+1. A feed-forward mechanism to implement the actual network prediction:
+
+   each layer is derived as a linear comb of the prev layer , with an activation func applied on top of that to transform/squeeze the output into the desired one. eg 
+ - sigmoid:for binary output 0-1/is or isnt/true or false. Can also be used with multi-labelling where output vector can have multiple ones eg (1 0 1)
+ - ReLU (Rectified Linear Unit), used for hidden layers in modern Deep NNs, good for learning one class at a time , ReLU=max(0,a)
+ - softmax:for multiclass , assigns a probability
 2. Backpropagation, to calculate the Gradient and estimate the network Weights
 
 ## How does a network learn? 
@@ -437,6 +442,32 @@ Processes batches of data obtained by a random permutation of the training data.
 
 This enables us to average the gradients computed for each batch, which is less noisy than SGD - which applies on every sample - but also faster and less expensive than a Batch Gradient Descent which uses the whole training sample.
 
+Training inputs:
+
+```
+ X:        input data: s-legnth list of n sized vectors (sxn), one for each sampled input
+           e.g. for classifying numbers 0-9, we need s=sample size, say 100 images, by n=900*700=630k pixels
+            for a chess board s=sample size of different positions, by n=64
+            predicting a price movement, s=1000 samples by n=23=20 past returns+1 volatility+1 volume feature+1 orderbook imbalance
+ Y:        output data: Y-length list of m sized vectors (Yxm), one for each output.
+           e.g for classifying numbers 0-9, we need 10 sets of m=10-length 0/1 outputs, (1 0 0 0 0 0 0 0 0 0;0 1 0 0 0 0 0 0 0 0;..)
+           for up/down/same probabilities we need Y sets of m=3 (1 0 0;0 1 0;0 0 1),etc Y being the number of available sampled data
+ avgx/devx: avg and deviation of input X set. use these to normalise test X.
+ k:        hidden layers length
+ l:        number of hidden layers
+ e:        zero or small constant to initialise bias vector
+ updwf:    list of update-weights function with its params, eg (`adam;([m1:.9;m2:.999;e:1e-8;a:.001])
+ hactivf:  hidden activation function: eg ReLU, used in modern Deep NNs, good for learning one class at a time by removing the negative components
+ activf:   activation function:
+ activf_d: activation function derivative
+ cost:     cost function: MSE (mean square error) for regression or cross-entropy/AUROC for classification
+ cost_d:   cost function derivative
+ batchsize:batch size. we will sample s%b batches Bi, where s is training sample size and b is batch size
+           {i0,..iB},{iB+1,...i2B},...,{iNB+1,...S}, where S is the training data sample size and i are randomly picked indices
+           mini-batch: apply SGD (avg over N gradients) for a batch eg 32/64/128 examples (for datasize S in thousands) instead of whole training data
+           rough rule: S/batch_size ~= 50-200
+ numepochs:number of epochs: each epoch is the training set, and for each epoch we sample B size bathces
+```
 ## Training on the MNIST dataset
 
 Let's now train our model on the famous MNIST dataset of handwritten digits. We will use one hidden layer of size 32, along with the mini-batch SGD. We will start using a single epoch and then increase the number of epochs as well as the batchsize:

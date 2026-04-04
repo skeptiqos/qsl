@@ -2,20 +2,14 @@
 
 \d .neuralnet
 // ------ Core logic: FF and Backprop ------
-/ feed forward: each layer is derived as a linear comb of the prev layer , with an activation func applied on top of that to transform/squeeze the output into the desired one
-/ eg sigmoid to convert a vector input with w weights - sigmoid(w*n) - to 0-1 probability
 / w: weights matrix, length k x n, k: nodes in next layer, n: nodes in previous layer
 / a: input activation nodes vector, length n. a=f z-> activation node at layer l.
 / b: bias vector, length n (positive to have bias to be active, negative to have bias to be inactive, ie <0)
-/ f: activation function,
-/    eg sigmoid (for probability 0-1),
-/    ReLU (Rectified Linear Unit), used in modern Deep NNs, good for learning one class at a time , ReLU=max(0,a)
-/ z: linear combination of the prev layer
+/ f: activation function
 zf:{[b;w;a] b+w$a};
 
 / .neuralnet.feedfwd[FP`f]\[I;W;B]
-/ When forward feeding we should calculate and store both z and a=f[z]
-feedfwd:{[f;l;w;b] ([a:f z;z:z:zf[b;w;l`a];w;b;d:()]) };
+feedfwd:{[f;l;w;b] ([a:f z;z:z:zf[b;w;l`a];w;b;d:()]) }; / for forward feeding we should calculate and store both z and a=f[z]
 
 nabla:{[dcda;dadz;l;pl]
  z:l`z;d:l`d;i:l`l;w:l`w; / nw -> next w (careful on the indexing)
@@ -25,8 +19,7 @@ nabla:{[dcda;dadz;l;pl]
  };
 
 backpropagate:{[fp;y;a]
- a:update w:prev w,b:prev b,nabla_cw:count[i]#() from reverse a;
- a:update l:i from a;
+ a:update l:i from update w:prev w,b:prev b,nabla_cw:count[i]#() from reverse a;
  dcda:fp[`dc][a[0;`a];y];  / cost func derivative at output layer based on expected y and output activation (prediction) a
  nabla[dcda;fp`df] scan a
  };
@@ -72,8 +65,7 @@ train1B:{[pm;wb]
  g:l#'avg nns[;`G;`nabla_cw`d];
  (Cw;Cb):clipG[pm`gradclipc;g];
  (w;b):l#'nns[0;`G;`w`b];
- (wpm;bpm):(([w:w;g:Cw]);([w:b;g:Cb]));
- wpp:wpq:bpp:bpq:0n;
+ (wpm;bpm):(([w:w;g:Cw]);([w:b;g:Cb])); wpp:wpq:bpp:bpq:0n;
  / use a gradient decent optimiser (eg adam) to update the parameters
  if[`static~first pm`updwf;(nw;nb):(applyUpdWf[pm`updwf;wpm];applyUpdWf[pm`updwf;bpm])];
  if[`adam~first pm`updwf;
@@ -88,35 +80,11 @@ train1B:{[pm;wb]
  };
 
 / trainMBSGD: MiniBatch SGD
-/ X:        input data: s-legnth list of n sized vectors (sxn), one for each sampled input
-/           e.g. for classifying numbers 0-9, we need s=sample size, say 100 images, by n=900*700=630k pixels
-/            for a chess board s=sample size of different positions, by n=64
-/            predicting a price movement, s=1000 samples by n=23=20 past returns+1 volatility+1 volume feature+1 orderbook imbalance
-/ Y:        output data: Y-length list of m sized vectors (Yxm), one for each output.
-/           e.g for classifying numbers 0-9, we need 10 sets of m=10-length 0/1 outputs, (1 0 0 0 0 0 0 0 0 0;0 1 0 0 0 0 0 0 0 0;..)
-/           for up/down/same probabilities we need Y sets of m=3 (1 0 0;0 1 0;0 0 1),etc Y being the number of available sampled data
-/ avgx/devx: avg and deviation of input X set. use these to normalise test X.
-/ k:        hidden layers length
-/ l:        number of hidden layers
-/ e:        zero or small constant to initialise bias vector
-/ updwf:    liast of update-weights function with its params, eg (`adam;([m1:.9;m2:.999;e:1e-8;a:.001])
-/ hactivf:  hidden activation function: eg ReLU, used in modern Deep NNs, good for learning one class at a time by removing the negative components
-/ activf:   activation function:
-/            sigmoid:for binary output 0-1/is or isnt/true or false. Can also be used with multi-labelling where output vector can have multiple ones eg (1 0 1)
-/            softmax:for multiclass , assigns a probability
-/ activf_d: activation function derivative
-/ cost:     cost function: MSE (mean square error) for regression or cross-entropy/AUROC for classification
-/ cost_d:   cost function derivative
-/ batchsize:batch size. we will sample s%b batches Bi, where s is training sample size and b is batch size
-/           {i0,..iB},{iB+1,...i2B},...,{iNB+1,...S}, where S is the training data sample size and i are randomly picked indices
-/           mini-batch: apply SGD (avg over N gradients) for a batch eg 32/64/128 examples (for datasize S in thousands) instead of whole training data
-/           rough rule: S/batch_size ~= 50-200
-/ numepochs:number of epochs: each epoch is the training set, and for each epoch we sample B size bathces
 trainMBSGD:{[pm]
  batchids:raze {[bs;s]bs cut neg[s]?s}[pm`batchsize]each pm[`numepochs]#count pm`X;
  initstate:(`W`B#pm),([avgC:0f;devC:0n;startC:0n;endC:0n;fftime:0D;bptime:0D;step:0;batchid:1;wpp:0;wpq:0;bpp:0;bpq:0;costreduction:1f;batchids:batchids]);
  stopcond:{all (x>z`step;y<z`costreduction;count z`batchids)}[pm`maxsteps;pm`crthresh];
- / iterate over batches using each steps estimated weights as an input to the next iteration
+ / iterate over batches using each step's estimated weights as an input to the next iteration
  $[pm`history;train1B[pm]\[stopcond;initstate];train1B[pm]/[stopcond;initstate]]
  };
 
@@ -142,10 +110,6 @@ validate:{[([x;y;hactivf;activf;costf;nn;history])]
 setSeed:{system"S ",string x;-1"Seed S:",string system"S";};
 
 / initiate weights: this is an array of weight matrices, one W matrix for each layer
-/ n: input length
-/ k: hidden layers length
-/ l: number of hidden layers
-/ m: output length
 initw:{[n;k;l;m]
  r:sqrt 6%n; / Uniform He: recommended for randomisation of weights
  wi:{[r;n;k]r*-1+n?2f}[r;n]each til k;
@@ -155,10 +119,7 @@ initw:{[n;k;l;m]
  };
 
 / initiate bias vectors: array of l+1 bias vectors
-initb:{[k;l;m;e]
- b:l#enlist k#e;
- b,enlist m#e
- };
+initb:{[k;l;m;e] (l#enlist k#e),enlist m#e};
 
 / pm:`x`avgx`devx!(..)
 / avgx devx are optional:should be calculated for train data, and passed *from* train data values when testing (predicting)
@@ -182,14 +143,12 @@ initParam:{[pmi]
        k:32; l:1; e:X`avgx;
        hactivf:.nnu.relu; hactivf_d: >[;0]; activf:.nnu.softmax .999;
        cost:.nnu.xentropy; cost_d:.nnu.xentropy_d;
-       updwf:(`static;([eta:0.1]));gradclipc:0f;
-       batchsize:64; numepochs:1;
+       updwf:(`static;([eta:0.1]));gradclipc:0f;batchsize:64; numepochs:1;
        maxsteps:5000000;cremal:.01;crthresh:0.001;   / cost reduction covergence ema lambda and threshold below which it is satisfactory to stop
        history:0b]);
  pm:pmd,pmi;
  (n;m):count each first each pm`X`Y;
- pm,
- (!) . flip (
+ pm,(!) . flip (
   (`n;n);
   (`m;m);
   (`FP;`f`df`ff`c`dc!(pm`hactivf`hactivf_d`activf`cost`cost_d)); / f : hidden layer activation function df: derivative of f ff: final layer activation function
@@ -204,8 +163,7 @@ initTrainPredict:{[ixyraw;pxyraw;pmi]
  -1 ".neuralnet.train: MiniBatch Stochastic Gradient Decent";s:.z.n;
  nn:trainMBSGD[pm];
  -1 ".neuralnet.train time:",string traintime:.z.n-s;
- / test data - predict
- pxy:prepData[pxyraw;`test;`avgx`devx#pm]; / normalise vs the mean&dev used for the training data
+ pxy:prepData[pxyraw;`test;`avgx`devx#pm]; / normalise test data vs the mean&dev used for the training data
  -1 ".neuralnet.validate prediction on ",string[count pxyraw`X]," test data";
  validation:validate[([x:pxy[`XD]`normx;y:pxy`Y;hactivf:pm[`FP;`f];activf:pm[`FP;`ff];costf:pm[`FP;`c];nn;history:pm`history])];
  validationstats:select accuracy:{100*sum[x]%count x}success,avg valcost by valstep from raze validation;
